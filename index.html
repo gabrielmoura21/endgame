@@ -120,6 +120,62 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .foot { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-bottom: 40px; color: var(--muted); font-size: 0.8rem; }
 .link-btn { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; font-size: 0.8rem; }
 
+/* abas, status, resumo do ano */
+.tabs { display: flex; gap: 22px; padding-top: 14px; border-bottom: 1px solid var(--line); }
+.tab { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; min-height: 44px; color: var(--muted); font-weight: 600; font-size: 0.92rem; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tb-status { padding-bottom: 0; }
+.tb-status + .toolbar { padding-top: 10px; }
+.tag-st { position: absolute; left: 8px; top: 8px; padding: 1px 7px; border-radius: 6px; background: rgba(10, 12, 16, 0.82); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.tag-st.platinado { color: #b9e6ff; }
+.tag-st.dropado { color: #ff9e94; }
+.tag-st.backlog { color: #c9ccd8; }
+.cover.st-dropado img { filter: grayscale(0.8); }
+.field textarea { width: 100%; min-width: 0; min-height: 84px; padding: 10px 12px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+.hint { align-self: flex-end; color: var(--muted); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.btn.small { min-height: 34px; padding: 0 14px; font-size: 0.8rem; }
+.foot-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.io-status { flex-basis: 100%; min-height: 1.2em; font-size: 0.8rem; color: var(--muted); }
+.io-status.error { color: var(--danger); }
+
+.y-head { display: flex; align-items: center; gap: 12px; padding-block: 20px 14px; flex-wrap: wrap; }
+.y-head h2 { margin: 0 auto 0 0; font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; }
+.y-grid { display: grid; gap: 14px; padding-bottom: 24px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.tile b { display: block; font-family: var(--font-display); font-size: 1.7rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tile span { color: var(--muted); font-size: 0.8rem; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.panel h3 { margin: 0 0 14px; font-family: var(--font-display); font-weight: 600; font-size: 0.95rem; }
+.y-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.bars { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; height: 180px; }
+.bar-col { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.bar-val { height: 18px; font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.bar { width: 100%; min-height: 2px; background: var(--accent); border-radius: 4px 4px 0 0; }
+.bar.zero { background: var(--line); }
+.bar-lbl { height: 22px; padding-top: 5px; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.hrow { display: grid; grid-template-columns: minmax(70px, 120px) minmax(0, 1fr) 28px; gap: 10px; align-items: center; padding-block: 5px; font-size: 0.85rem; }
+.hrow > span:first-child { overflow-wrap: anywhere; }
+.htrack { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.hfill { height: 100%; background: var(--accent); border-radius: 5px; }
+.hn { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.best { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.best li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.thumb { width: 44px; aspect-ratio: 2 / 3; border-radius: 5px; overflow: hidden; background: var(--surface-2); }
+.thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.b-title { font-weight: 600; overflow-wrap: anywhere; }
+.b-meta { color: var(--muted); font-size: 0.8rem; }
+.b-rev { color: var(--muted); font-size: 0.84rem; margin-top: 4px; overflow-wrap: anywhere; }
+.b-score { font-weight: 700; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .y-two { grid-template-columns: minmax(0, 1fr); }
+  .bars { gap: 3px; }
+  .bar-lbl { font-size: 0.62rem; letter-spacing: 0; }
+}
+
 /* modal */
 .overlay { position: fixed; inset: 0; z-index: 20; background: var(--overlay); display: flex; align-items: flex-start; justify-content: center; overflow-y: auto;
   padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
@@ -161,16 +217,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 <header class="topbar">
   <div class="inner">
     <h1 class="brand">Zerados</h1>
-    <div class="search"><input type="search" id="q" placeholder="Buscar na sua lista" aria-label="Buscar na sua lista"></div>
+    <div class="search" id="search-box"><input type="search" id="q" placeholder="Buscar na sua lista" aria-label="Buscar na sua lista"></div>
     <button type="button" class="btn primary" id="add-btn">Adicionar jogo</button>
   </div>
 </header>
 
 <main class="inner">
+  <nav class="tabs" role="tablist" aria-label="Seções">
+    <button type="button" role="tab" class="tab" id="tab-lib" aria-selected="true">Biblioteca</button>
+    <button type="button" role="tab" class="tab" id="tab-year" aria-selected="false">Resumo do ano</button>
+  </nav>
+  <div id="view-lib">
   <div class="summary" id="summary" aria-label="Resumo">
     <span><b id="stat-total">0</b>zerados</span>
     <span><b id="stat-avg">–</b>nota média</span>
     <span><b id="stat-year">0</b><span id="stat-year-cap">neste ano</span></span>
+    <span><b id="stat-backlog">0</b>no backlog</span>
+  </div>
+  <div class="toolbar tb-status">
+    <div class="chips" id="status-chips" role="group" aria-label="Filtrar por status"></div>
   </div>
   <div class="toolbar">
     <div class="chips" id="chips" role="group" aria-label="Filtrar por plataforma"></div>
@@ -183,10 +248,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
     </select>
   </div>
   <ul class="grid" id="grid"></ul>
+  </div>
+  <div id="view-year" hidden>
+    <div class="y-head">
+      <h2>Resumo do ano</h2>
+      <select class="sort" id="year-sel" aria-label="Ano" hidden></select>
+    </div>
+    <div class="y-grid" id="year-body"></div>
+  </div>
   <div class="foot">
     <span id="storage-note"></span>
-    <button type="button" class="link-btn" id="clear-examples" hidden>Remover jogos de exemplo</button>
+    <span class="foot-actions">
+      <button type="button" class="btn small" id="export-btn">Exportar</button>
+      <button type="button" class="btn small" id="import-btn">Importar</button>
+      <button type="button" class="link-btn" id="clear-examples" hidden>Remover jogos de exemplo</button>
+    </span>
+    <span class="io-status" id="io-status" role="status" aria-live="polite"></span>
   </div>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
 </main>
 
 <div class="overlay" id="overlay" hidden>
@@ -212,19 +291,28 @@ button { font: inherit; color: inherit; cursor: pointer; }
             <datalist id="game-suggestions"></datalist>
           </div>
           <div class="field">
-            <label for="date">Data em que zerou</label>
-            <input type="date" id="date" required>
+            <label for="status-sel">Status</label>
+            <select id="status-sel"></select>
+          </div>
+          <div class="field" id="f-date">
+            <label for="date" id="date-label">Data em que zerou</label>
+            <input type="date" id="date">
           </div>
           <div class="field">
             <label for="platform">Plataforma</label>
             <select id="platform" required></select>
           </div>
-          <div class="field">
+          <div class="field" id="f-rating">
             <span class="lbl" id="rating-label">Nota</span>
             <div class="rating-row">
               <input type="range" id="rating" min="0" max="10" step="0.5" value="8" aria-labelledby="rating-label">
               <output id="rating-out" class="rating-value" for="rating">8,0</output>
             </div>
+          </div>
+          <div class="field">
+            <label for="review">Resenha curta</label>
+            <textarea id="review" maxlength="280" rows="3" placeholder="O que você achou do jogo?"></textarea>
+            <span class="hint" id="review-count">0/280</span>
           </div>
         </div>
       </div>
@@ -244,6 +332,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
   var SUGGESTIONS = ["Elden Ring","The Legend of Zelda: Breath of the Wild","The Legend of Zelda: Tears of the Kingdom","The Witcher 3: Wild Hunt","Red Dead Redemption 2","God of War","God of War Ragnarök","The Last of Us Part I","The Last of Us Part II","Hollow Knight","Celeste","Hades","Stardew Valley","Cyberpunk 2077","Baldur's Gate 3","Dark Souls","Dark Souls III","Sekiro: Shadows Die Twice","Bloodborne","Hogwarts Legacy","Horizon Zero Dawn","Horizon Forbidden West","Marvel's Spider-Man","Marvel's Spider-Man 2","Ghost of Tsushima","Resident Evil 4","Resident Evil 2","Resident Evil Village","Persona 5 Royal","Final Fantasy VII Remake","Final Fantasy X","Super Mario Odyssey","Super Mario Bros. Wonder","Metroid Dread","Hollow Knight: Silksong","Disco Elysium","Undertale","Portal 2","Half-Life 2","Half-Life: Alyx","Mass Effect Legendary Edition","Grand Theft Auto V","Grand Theft Auto: San Andreas","Fallout 4","Fallout: New Vegas","The Elder Scrolls V: Skyrim","DOOM Eternal","DOOM (2016)","Control","Alan Wake 2","Death Stranding","Metal Gear Solid V: The Phantom Pain","Uncharted 4: A Thief's End","Assassin's Creed Odyssey","Assassin's Creed Valhalla","Assassin's Creed II","Batman: Arkham City","Sea of Thieves","Cuphead","Ori and the Will of the Wisps","Little Nightmares II","Inside","Limbo","It Takes Two","A Plague Tale: Requiem","Star Wars Jedi: Survivor","Pokémon Legends: Arceus","Kirby and the Forgotten Land","Xenoblade Chronicles 3","Fire Emblem: Three Houses","Animal Crossing: New Horizons","Forza Horizon 5","F1 24","EA Sports FC 25","Clair Obscur: Expedition 33"];
   var PLATFORMS = ["PC","PlayStation 5","PlayStation 4","PlayStation 3","PlayStation 2","Xbox Series X|S","Xbox One","Xbox 360","Nintendo Switch","Wii U","Nintendo 3DS","Steam Deck","Celular","Retrô / Emulador","Outra"];
   var LS_KEY = "zerados:games:v1";
+  var STATUSES = [{ id: "zerado", label: "Zerado" }, { id: "platinado", label: "Platinado" }, { id: "dropado", label: "Dropado" }, { id: "backlog", label: "Backlog" }];
+  var DATE_LABEL = { zerado: "Data em que zerou", platinado: "Data da platina", dropado: "Data em que largou" };
+  function statusLabel(id) { for (var i = 0; i < STATUSES.length; i++) if (STATUSES[i].id === id) return STATUSES[i].label; return id; }
+  function isDone(g) { return g.status === "zerado" || g.status === "platinado"; }
+  function avgOf(list) { var r = list.filter(function (g) { return g.rating !== null; }); return r.length ? r.reduce(function (s, g) { return s + g.rating; }, 0) / r.length : null; }
+  function missLast(av, bv, dir) { var am = av === "" || av === null, bm = bv === "" || bv === null; if (am || bm) return am && bm ? 0 : am ? 1 : -1; return av < bv ? -dir : av > bv ? dir : 0; }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 
   var $ = function (id) { return document.getElementById(id); };
   var games = [];
@@ -253,6 +348,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   var canWrite = true;
   var ready = false;
   var platFilter = "";
+  var statusFilter = "";
+  var view = "lib";
+  var yearSel = null;
   var lastFocus = null;
   var armed = false, armedTimer = null;
 
@@ -344,6 +442,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
   var ratingEl = $("rating");
   function syncRating() { $("rating-out").textContent = fmtRating(ratingEl.value); }
   ratingEl.addEventListener("input", syncRating);
+  var stSel = $("status-sel");
+  STATUSES.forEach(function (s) { var o = document.createElement("option"); o.value = s.id; o.textContent = s.label; stSel.appendChild(o); });
+  function syncStatus() {
+    var st = stSel.value;
+    $("f-date").hidden = st === "backlog";
+    $("f-rating").hidden = st === "backlog";
+    if (DATE_LABEL[st]) $("date-label").textContent = DATE_LABEL[st];
+  }
+  stSel.addEventListener("change", syncStatus);
+  function syncReview() { $("review-count").textContent = $("review").value.length + "/280"; }
+  $("review").addEventListener("input", syncReview);
 
   function resetArm() { armed = false; clearTimeout(armedTimer); var b = $("del-btn"); b.textContent = "Excluir"; b.classList.remove("armed"); }
 
@@ -353,10 +462,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
     coverData = g && g.cover ? g.cover : "";
     $("m-title").textContent = g ? "Editar jogo" : "Adicionar jogo";
     $("title").value = g ? g.title : "";
-    $("date").value = g ? g.date : todayISO();
+    stSel.value = g ? g.status : "zerado";
+    $("date").value = g && g.date ? g.date : todayISO();
+    $("review").value = g ? g.review : "";
+    syncReview();
     if (g && PLATFORMS.indexOf(g.platform) < 0) { var o = document.createElement("option"); o.value = o.textContent = g.platform; pSel.appendChild(o); }
     pSel.value = g ? g.platform : PLATFORMS[0];
-    ratingEl.value = g ? g.rating : 8; syncRating();
+    ratingEl.value = g && g.rating !== null ? g.rating : 8; syncRating(); syncStatus();
     $("del-btn").hidden = !g;
     resetArm(); showCover(); setStatus("");
     $("overlay").hidden = false;
@@ -380,7 +492,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
     var title = $("title").value.trim();
     if (!title) { setStatus("Informe o nome do jogo.", true); return; }
     var existing = editingId ? games.filter(function (g) { return g.id === editingId; })[0] : null;
-    var data = { title: title, platform: pSel.value, date: $("date").value, rating: Number(ratingEl.value), createdAt: existing ? existing.createdAt : Date.now() };
+    var st = stSel.value;
+    if (st !== "backlog" && !$("date").value) { setStatus("Informe a data.", true); return; }
+    var data = {
+      title: title, platform: pSel.value, status: st,
+      date: st === "backlog" ? "" : $("date").value,
+      rating: st === "backlog" ? null : Number(ratingEl.value),
+      review: $("review").value.trim(),
+      createdAt: existing ? existing.createdAt : Date.now()
+    };
     if (coverData) data.cover = coverData;
     var id = editingId || newId();
     var btn = $("save-btn"); btn.disabled = true;
@@ -400,26 +520,28 @@ button { font: inherit; color: inherit; cursor: pointer; }
   // ---------- lista ----------
   function visibleGames() {
     var q = $("q").value.trim().toLowerCase();
-    var list = games.filter(function (g) { return (!platFilter || g.platform === platFilter) && (!q || g.title.toLowerCase().indexOf(q) >= 0); });
+    var list = games.filter(function (g) { return (!statusFilter || g.status === statusFilter) && (!platFilter || g.platform === platFilter) && (!q || g.title.toLowerCase().indexOf(q) >= 0); });
     var sort = $("sort").value;
     list.sort(function (a, b) {
       switch (sort) {
-        case "date-asc": return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
-        case "rating-desc": return b.rating - a.rating || (a.date < b.date ? 1 : -1);
-        case "rating-asc": return a.rating - b.rating || (a.date < b.date ? 1 : -1);
+        case "date-asc": return missLast(a.date, b.date, 1);
+        case "rating-desc": return missLast(a.rating, b.rating, -1) || missLast(a.date, b.date, -1);
+        case "rating-asc": return missLast(a.rating, b.rating, 1) || missLast(a.date, b.date, -1);
         case "title-asc": return a.title.localeCompare(b.title, "pt-BR");
-        default: return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+        default: return missLast(a.date, b.date, -1);
       }
     });
     return list;
   }
   function renderStats() {
-    var total = games.length;
-    $("stat-total").textContent = total;
-    $("stat-avg").textContent = total ? fmtRating(games.reduce(function (s, g) { return s + g.rating; }, 0) / total) : "–";
-    var y = new Date().getFullYear();
+    var done = games.filter(isDone);
+    $("stat-total").textContent = done.length;
+    var avg = avgOf(games);
+    $("stat-avg").textContent = avg === null ? "–" : fmtRating(avg);
+    var y = String(new Date().getFullYear());
     $("stat-year-cap").textContent = "em " + y;
-    $("stat-year").textContent = games.filter(function (g) { return g.date.slice(0, 4) === String(y); }).length;
+    $("stat-year").textContent = done.filter(function (g) { return g.date.slice(0, 4) === y; }).length;
+    $("stat-backlog").textContent = games.filter(function (g) { return g.status === "backlog"; }).length;
   }
   function renderChips() {
     var box = $("chips"); box.innerHTML = "";
@@ -431,7 +553,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
       b.addEventListener("click", function () { platFilter = val; renderChips(); renderGrid(); });
       box.appendChild(b);
     }
-    chip("Todos", "");
+    chip("Todas as plataformas", "");
     PLATFORMS.concat(Object.keys(used).filter(function (p) { return PLATFORMS.indexOf(p) < 0; })).forEach(function (p) { if (used[p]) chip(p, p); });
   }
   function renderGrid() {
@@ -450,27 +572,30 @@ button { font: inherit; color: inherit; cursor: pointer; }
     list.forEach(function (g) {
       var li = document.createElement("li");
       var b = document.createElement("button"); b.type = "button"; b.className = "game"; b.disabled = !canWrite;
-      b.setAttribute("aria-label", g.title + ", nota " + fmtRating(g.rating) + ", " + g.platform);
-      var cv = document.createElement("div"); cv.className = "cover";
+      b.setAttribute("aria-label", g.title + ", " + statusLabel(g.status) + (g.rating !== null ? ", nota " + fmtRating(g.rating) : "") + ", " + g.platform);
+      if (g.review) b.title = g.review;
+      var cv = document.createElement("div"); cv.className = "cover st-" + g.status;
       if (g.cover) { var im = document.createElement("img"); im.src = g.cover; im.alt = ""; im.loading = "lazy"; cv.appendChild(im); }
       else {
         var h = hueOf(g.title);
         cv.style.background = "linear-gradient(160deg, hsl(" + h + " 36% 32%), hsl(" + ((h + 40) % 360) + " 40% 17%))";
         var ph = document.createElement("div"); ph.className = "ph"; ph.textContent = g.title; cv.appendChild(ph);
       }
-      var bd = document.createElement("span"); bd.className = "badge " + scoreClass(g.rating); bd.textContent = fmtRating(g.rating); cv.appendChild(bd);
+      if (g.rating !== null) { var bd = document.createElement("span"); bd.className = "badge " + scoreClass(g.rating); bd.textContent = fmtRating(g.rating); cv.appendChild(bd); }
+      if (g.status !== "zerado") { var stg = document.createElement("span"); stg.className = "tag-st " + g.status; stg.textContent = statusLabel(g.status); cv.appendChild(stg); }
       if (g.example) { var ex = document.createElement("span"); ex.className = "tag-ex"; ex.textContent = "exemplo"; cv.appendChild(ex); }
       var t = document.createElement("p"); t.className = "g-title"; t.textContent = g.title;
-      var m = document.createElement("p"); m.className = "g-meta"; m.textContent = g.platform + " · " + fmtDate(g.date);
+      var m = document.createElement("p"); m.className = "g-meta"; m.textContent = g.date ? g.platform + " · " + fmtDate(g.date) : g.platform;
       b.appendChild(cv); b.appendChild(t); b.appendChild(m);
       if (canWrite) b.addEventListener("click", function () { openModal(g); });
       li.appendChild(b); ul.appendChild(li);
     });
   }
   function renderAll() {
-    renderStats(); renderChips(); renderGrid();
+    renderStats(); renderStatusChips(); renderChips(); renderGrid(); if (view === "year") renderYear();
     $("clear-examples").hidden = !(canWrite && games.some(function (g) { return g.example; }));
     $("add-btn").hidden = !canWrite;
+    $("import-btn").hidden = !canWrite;
   }
   $("q").addEventListener("input", renderGrid);
   $("sort").addEventListener("change", renderGrid);
@@ -479,14 +604,208 @@ button { font: inherit; color: inherit; cursor: pointer; }
     Promise.all(ex.map(function (g) { return backend.remove(g.id); })).catch(function () {});
   });
 
+  // ---------- status, abas e resumo do ano ----------
+  function renderStatusChips() {
+    var box = $("status-chips"); box.innerHTML = "";
+    var counts = {}; games.forEach(function (g) { counts[g.status] = (counts[g.status] || 0) + 1; });
+    if (statusFilter && !counts[statusFilter]) statusFilter = "";
+    function chip(label, val, n) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.textContent = label + " " + n;
+      b.setAttribute("aria-pressed", String(statusFilter === val));
+      b.addEventListener("click", function () { statusFilter = val; renderStatusChips(); renderGrid(); });
+      box.appendChild(b);
+    }
+    chip("Todos", "", games.length);
+    STATUSES.forEach(function (s) { if (counts[s.id]) chip(s.label, s.id, counts[s.id]); });
+  }
+
+  var MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  function setView(v) {
+    view = v;
+    $("view-lib").hidden = v !== "lib";
+    $("view-year").hidden = v !== "year";
+    $("search-box").hidden = v !== "lib";
+    $("tab-lib").setAttribute("aria-selected", String(v === "lib"));
+    $("tab-year").setAttribute("aria-selected", String(v === "year"));
+    if (v === "year") renderYear();
+  }
+  $("tab-lib").addEventListener("click", function () { setView("lib"); });
+  $("tab-year").addEventListener("click", function () { setView("year"); });
+  $("year-sel").addEventListener("change", function () { yearSel = this.value; renderYear(); });
+
+  function hbars(rows, max) {
+    var wrap = el("div");
+    rows.forEach(function (r) {
+      var row = el("div", "hrow");
+      row.appendChild(el("span", "", r.label));
+      var tr = el("div", "htrack"), f = el("div", "hfill");
+      f.style.width = (max ? Math.round(r.n / max * 100) : 0) + "%";
+      tr.appendChild(f); row.appendChild(tr);
+      row.appendChild(el("span", "hn", String(r.n)));
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+  function panel(title, child) { var p = el("section", "panel"); p.appendChild(el("h3", "", title)); p.appendChild(child); return p; }
+  function thumbEl(g) {
+    var t = el("div", "thumb");
+    if (g.cover) { var im = document.createElement("img"); im.src = g.cover; im.alt = ""; t.appendChild(im); }
+    else { var h = hueOf(g.title); t.style.background = "linear-gradient(160deg, hsl(" + h + " 36% 32%), hsl(" + ((h + 40) % 360) + " 40% 17%))"; }
+    return t;
+  }
+
+  function renderYear() {
+    var body = $("year-body"), sel = $("year-sel");
+    body.innerHTML = "";
+    var ys = {};
+    games.forEach(function (g) { if (g.date) ys[g.date.slice(0, 4)] = true; });
+    var years = Object.keys(ys).sort().reverse();
+    if (!years.length) {
+      sel.hidden = true;
+      var e = el("div", "empty");
+      e.appendChild(el("strong", "", ready ? "Sem jogos com data ainda" : "Carregando sua lista"));
+      e.appendChild(document.createTextNode(ready ? "O resumo aparece quando você registrar jogos zerados, platinados ou dropados." : "Só um instante."));
+      body.appendChild(e);
+      return;
+    }
+    sel.hidden = false;
+    var cur = String(new Date().getFullYear());
+    if (!yearSel || years.indexOf(yearSel) < 0) yearSel = years.indexOf(cur) >= 0 ? cur : years[0];
+    sel.innerHTML = "";
+    years.forEach(function (y) { var o = el("option", "", y); o.value = y; sel.appendChild(o); });
+    sel.value = yearSel;
+
+    var inYear = games.filter(function (g) { return g.date && g.date.slice(0, 4) === yearSel; });
+    var done = inYear.filter(isDone);
+    var plat = inYear.filter(function (g) { return g.status === "platinado"; });
+    var drop = inYear.filter(function (g) { return g.status === "dropado"; });
+    var avg = avgOf(inYear);
+
+    var tiles = el("div", "tiles");
+    [[done.length, "finalizados"], [plat.length, "platinas"], [drop.length, "dropados"], [avg === null ? "–" : fmtRating(avg), "nota média"]].forEach(function (t) {
+      var d = el("div", "tile"); d.appendChild(el("b", "", String(t[0]))); d.appendChild(el("span", "", t[1])); tiles.appendChild(d);
+    });
+    body.appendChild(tiles);
+
+    var counts = []; for (var i = 0; i < 12; i++) counts.push(0);
+    done.forEach(function (g) { counts[Number(g.date.slice(5, 7)) - 1]++; });
+    var max = Math.max.apply(null, counts);
+    var bars = el("div", "bars"); bars.setAttribute("role", "img");
+    bars.setAttribute("aria-label", "Jogos finalizados por mês em " + yearSel + ": " + MONTHS.map(function (m, k) { return m + " " + counts[k]; }).join(", "));
+    counts.forEach(function (n, k) {
+      var col = el("div", "bar-col");
+      col.appendChild(el("span", "bar-val", n ? String(n) : ""));
+      var tr = el("div", "bar-track"), b = el("div", "bar" + (n ? "" : " zero"));
+      b.style.height = (max ? Math.round(n / max * 100) : 0) + "%";
+      tr.appendChild(b); col.appendChild(tr);
+      col.appendChild(el("span", "bar-lbl", MONTHS[k]));
+      bars.appendChild(col);
+    });
+    body.appendChild(panel("Finalizados por mês", bars));
+
+    var rated = inYear.filter(function (g) { return g.rating !== null; });
+    var bk = [0, 0, 0, 0];
+    rated.forEach(function (g) { bk[g.rating < 5 ? 0 : g.rating < 7 ? 1 : g.rating < 9 ? 2 : 3]++; });
+    var two = el("div", "y-two");
+    two.appendChild(panel("Distribuição das notas", hbars([{ label: "9 a 10", n: bk[3] }, { label: "7 a 8,5", n: bk[2] }, { label: "5 a 6,5", n: bk[1] }, { label: "0 a 4,5", n: bk[0] }], Math.max.apply(null, bk))));
+    var pc = {}; done.forEach(function (g) { pc[g.platform] = (pc[g.platform] || 0) + 1; });
+    var prow = Object.keys(pc).map(function (p) { return { label: p, n: pc[p] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 5);
+    two.appendChild(panel("Plataformas", prow.length ? hbars(prow, prow[0].n) : el("p", "b-meta", "Nenhum jogo finalizado neste ano.")));
+    body.appendChild(two);
+
+    var best = rated.filter(isDone).sort(function (a, b) { return b.rating - a.rating || (a.date < b.date ? 1 : -1); }).slice(0, 5);
+    if (best.length) {
+      var ul = el("ul", "best");
+      best.forEach(function (g) {
+        var li = document.createElement("li");
+        li.appendChild(thumbEl(g));
+        var mid = el("div"); mid.style.minWidth = "0";
+        mid.appendChild(el("div", "b-title", g.title));
+        mid.appendChild(el("div", "b-meta", g.platform + " · " + statusLabel(g.status) + " em " + fmtDate(g.date)));
+        if (g.review) mid.appendChild(el("div", "b-rev", g.review));
+        li.appendChild(mid);
+        li.appendChild(el("div", "b-score", fmtRating(g.rating)));
+        ul.appendChild(li);
+      });
+      body.appendChild(panel("Melhores do ano", ul));
+    }
+  }
+
+  // ---------- exportar e importar ----------
+  function ioStatus(msg, isError) { var e = $("io-status"); e.textContent = msg || ""; e.className = "io-status" + (isError ? " error" : ""); }
+  function toDoc(g) {
+    var d = { title: g.title, platform: g.platform, status: g.status, date: g.date, rating: g.rating, review: g.review, createdAt: g.createdAt };
+    if (g.cover) d.cover = g.cover;
+    return d;
+  }
+  function saveFile(filename, text) {
+    var c = window.claude;
+    var p = c && c.use ? c.use("downloads") : Promise.resolve(null);
+    return p.then(function (dl) {
+      if (dl) return dl.save({ filename: filename, data: text });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+      a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    });
+  }
+  $("export-btn").addEventListener("click", function () {
+    var list = games.filter(function (g) { return !g.example; });
+    if (!list.length) { ioStatus("Não há jogos seus para exportar ainda.", true); return; }
+    var payload = { app: "zerados", version: 1, exportedAt: new Date().toISOString(), games: list.map(function (g) { var d = toDoc(g); d.id = g.id; return d; }) };
+    saveFile("zerados-" + todayISO() + ".json", JSON.stringify(payload, null, 2)).then(
+      function () { ioStatus(list.length + (list.length === 1 ? " jogo exportado." : " jogos exportados.")); },
+      function (e) { var no = e && e.code === "declined"; ioStatus(no ? "Exportação cancelada." : "Não foi possível exportar agora.", !no); });
+  });
+  $("import-btn").addEventListener("click", function () { $("import-file").click(); });
+  $("import-file").addEventListener("change", function () {
+    var f = this.files && this.files[0]; this.value = "";
+    if (!f) return;
+    if (!ready || !backend) { ioStatus("Aguarde a lista carregar.", true); return; }
+    if (f.size > 25 * 1024 * 1024) { ioStatus("O arquivo passa de 25 MB.", true); return; }
+    var fr = new FileReader();
+    fr.onerror = function () { ioStatus("Não foi possível ler o arquivo.", true); };
+    fr.onload = function () {
+      var parsed;
+      try { parsed = JSON.parse(fr.result); } catch (e) { ioStatus("O arquivo não é um JSON válido.", true); return; }
+      var arr = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.games) ? parsed.games : null;
+      if (!arr) { ioStatus("Não encontrei uma lista de jogos neste arquivo.", true); return; }
+      if (arr.length > 2000) { ioStatus("O arquivo tem jogos demais (máximo de 2000).", true); return; }
+      var seen = {}, items = [];
+      arr.forEach(function (it) {
+        if (!it || typeof it !== "object" || typeof it.title !== "string" || !it.title.trim()) return;
+        var id = typeof it.id === "string" && /^[A-Za-z0-9_\-.~:@+]{1,200}$/.test(it.id) ? it.id : newId();
+        if (seen[id]) return; seen[id] = true;
+        items.push({ id: id, doc: toDoc(normalize(id, it)) });
+      });
+      if (!items.length) { ioStatus("Nenhum jogo válido neste arquivo.", true); return; }
+      var known = {}; games.forEach(function (g) { known[g.id] = true; });
+      var added = 0, updated = 0, i = 0;
+      function next() {
+        if (i >= items.length) {
+          ioStatus(added + (added === 1 ? " adicionado, " : " adicionados, ") + updated + (updated === 1 ? " atualizado." : " atualizados."));
+          return Promise.resolve();
+        }
+        var it = items[i++];
+        ioStatus("Importando " + i + " de " + items.length + "…");
+        return Promise.resolve(backend.save(it.id, it.doc)).then(function () { if (known[it.id]) updated++; else added++; return next(); });
+      }
+      next().catch(function (e) { ioStatus("A importação parou após " + (added + updated) + " jogo(s). " + errMsg(e), true); });
+    };
+    fr.readAsText(f);
+  });
+
   // ---------- armazenamento ----------
   function normalize(id, d) {
+    var st = STATUSES.some(function (s) { return s.id === d.status; }) ? d.status : "zerado";
+    var okDate = typeof d.date === "string" && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(d.date);
     return {
-      id: id, title: String(d.title || ""), platform: String(d.platform || "Outra"),
-      date: /^\d{4}-\d{2}-\d{2}$/.test(d.date) ? d.date : todayISO(),
-      rating: Math.min(10, Math.max(0, Number(d.rating) || 0)),
+      id: id, title: String(d.title || "").trim().slice(0, 120), platform: String(d.platform || "Outra").slice(0, 60),
+      status: st,
+      date: st === "backlog" ? (okDate ? d.date : "") : (okDate ? d.date : todayISO()),
+      rating: st === "backlog" ? null : Math.min(10, Math.max(0, Number(d.rating) || 0)),
+      review: String(d.review || "").slice(0, 280),
       createdAt: Number(d.createdAt) || 0, example: d.example === true,
-      cover: typeof d.cover === "string" && d.cover.indexOf("data:image/") === 0 ? d.cover : ""
+      cover: typeof d.cover === "string" && d.cover.indexOf("data:image/") === 0 && d.cover.length <= 300000 ? d.cover : ""
     };
   }
   function useLocal() {
