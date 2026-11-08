@@ -443,6 +443,8 @@ body { background-color: var(--bg); background-image: radial-gradient(900px 520p
 .cov-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--accent); box-shadow: 0 0 12px var(--glow-soft); transition: width 0.25s ease; }
 .cov-line { margin: 14px 0 4px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cov-sub { margin: 0; min-height: 1.3em; color: var(--muted); font-size: 0.88rem; }
+.filter-bar { flex-wrap: wrap; }
+@media (max-width: 600px) { .filter-bar #group { margin-left: auto; } .filter-bar #sort { margin-left: 0; } }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   li.rise { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -521,6 +523,14 @@ window.__egAccent()})();</script>
       <button type="button" data-size="m" aria-label="Capas médias" title="Capas médias"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg></button>
       <button type="button" data-size="l" aria-label="Capas grandes" title="Capas grandes"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="8" rx="1.5"/><rect x="4" y="13" width="16" height="8" rx="1.5"/></svg></button>
     </div>
+    <select class="sort" id="group" aria-label="Agrupar por">
+      <option value="month">Agrupar por: ano e mês</option>
+      <option value="year">Agrupar por: ano</option>
+      <option value="platform">Agrupar por: plataforma</option>
+      <option value="status">Agrupar por: status</option>
+      <option value="rating">Agrupar por: nota</option>
+      <option value="none">Sem agrupar</option>
+    </select>
     <select class="sort" id="sort" aria-label="Ordenar">
       <option value="date-desc">Mais recentes</option>
       <option value="date-asc">Mais antigos</option>
@@ -995,32 +1005,52 @@ window.__egAccent()})();</script>
     var list = visibleGames();
     if (!list.length) { empty("Nada encontrado", "Nenhum jogo corresponde à busca ou ao filtro.", false); return; }
     // com ordenação por data, os jogos ficam em prateleiras: ano e, dentro dele, mês
-    var sortVal = $("sort").value;
-    var grouped = view !== "backlog" && (sortVal === "date-desc" || sortVal === "date-asc");
+    var sortVal = $("sort").value, gb = $("group").value;
+    var grouped = view !== "backlog" && gb !== "none";
     if (grouped) ul.className = "grid grouped";
+    var BANDS = { b10: "Nota 10", b7: "Nota 7 a 9,5", b5: "Nota 5 a 6,5", b0: "Nota 0 a 4,5", bn: "Sem nota" };
+    function topKey(g) {
+      if (gb === "month" || gb === "year") return g.date ? g.date.slice(0, 4) : "x";
+      if (gb === "platform") return g.platform;
+      if (gb === "status") return g.status;
+      return g.rating === null ? "bn" : g.rating >= 10 ? "b10" : g.rating >= 7 ? "b7" : g.rating >= 5 ? "b5" : "b0";
+    }
+    function topLabel(k) { return gb === "status" ? statusLabel(k) : gb === "rating" ? BANDS[k] : k === "x" ? "Backlog" : k; }
+    if (grouped) {
+      // as prateleiras seguem uma ordem própria; dentro de cada uma vale a ordenação escolhida
+      var asc = sortVal === "date-asc", plats = [];
+      if (gb === "platform") { list.forEach(function (g) { if (plats.indexOf(g.platform) < 0) plats.push(g.platform); }); plats.sort(function (a, c) { return a.localeCompare(c, "pt-BR"); }); }
+      var rk = function (g) {
+        if (gb === "month" || gb === "year") { var d = g.date ? (gb === "month" ? g.date.slice(0, 7) : g.date.slice(0, 4)) : ""; return d ? (asc ? 1 : -1) * Number(d.replace("-", "")) : 1e9; }
+        if (gb === "platform") return plats.indexOf(g.platform);
+        if (gb === "status") return STATUSES.map(function (x) { return x.id; }).indexOf(g.status);
+        return ["b10", "b7", "b5", "b0", "bn"].indexOf(topKey(g));
+      };
+      list = list.map(function (g, i) { return { g: g, i: i, r: rk(g) }; }).sort(function (a, c) { return a.r - c.r || a.i - c.i; }).map(function (x) { return x.g; });
+    }
     var MONTH_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
     var yCount = {}, mCount = {}, cur = ul, lastY = null, lastM = null, order = [];
     list.forEach(function (g) {
-      var y = g.date ? g.date.slice(0, 4) : "x", m = g.date ? g.date.slice(0, 7) : "x";
+      var y = topKey(g), m = g.date ? g.date.slice(0, 7) : "x";
       if (!yCount[y]) order.push(y);
       yCount[y] = (yCount[y] || 0) + 1; mCount[m] = (mCount[m] || 0) + 1;
     });
     function holder(g) {
       if (!grouped) return ul;
-      var y = g.date ? g.date.slice(0, 4) : "x", m = g.date ? g.date.slice(0, 7) : "x";
+      var y = topKey(g), m = g.date ? g.date.slice(0, 7) : "x";
       if (y !== lastY) {
         lastY = y; lastM = null;
         var yh = el("li", "grp-year"); yh.setAttribute("data-y", y);
-        var hh = el("h2"), tg = el("button", "grp-toggle", y === "x" ? "Backlog" : y);
+        var hh = el("h2"), tg = el("button", "grp-toggle", topLabel(y));
         tg.type = "button"; tg.setAttribute("aria-expanded", String(!collapsed[y]));
         tg.insertBefore(el("i", "chev"), tg.firstChild);
         tg.addEventListener("click", function () { toggleYear(y, tg); });
         hh.appendChild(tg); yh.appendChild(hh);
         yh.appendChild(el("span", "", yCount[y] + (yCount[y] === 1 ? " jogo" : " jogos")));
         ul.appendChild(yh);
-        if (y === "x") { var one = el("li", "grp-month"); one.setAttribute("data-y", y); one.hidden = !!collapsed[y]; cur = el("ul", "grid"); one.appendChild(cur); ul.appendChild(one); }
+        if (gb !== "month" || y === "x") { var one = el("li", "grp-month"); one.setAttribute("data-y", y); one.hidden = !!collapsed[y]; cur = el("ul", "grid"); one.appendChild(cur); ul.appendChild(one); }
       }
-      if (y !== "x" && m !== lastM) {
+      if (gb === "month" && y !== "x" && m !== lastM) {
         lastM = m;
         var mh = el("li", "grp-month"), head = el("div", "grp-month-head"); mh.setAttribute("data-y", y); mh.hidden = !!collapsed[y];
         head.appendChild(el("h3", "", MONTH_FULL[Number(m.slice(5, 7)) - 1]));
@@ -1055,9 +1085,9 @@ window.__egAccent()})();</script>
     if (grouped && order.length > 1) {
       yn.appendChild(el("span", "yn-label", "Ir para"));
       order.forEach(function (y) {
-        var yb = el("button", "chip", y === "x" ? "Backlog" : y); yb.type = "button";
+        var yb = el("button", "chip", topLabel(y)); yb.type = "button";
         yb.addEventListener("click", function () {
-          var h = ul.querySelector('.grp-year[data-y="' + y + '"]'); if (!h) return;
+          var h = ul.querySelector('.grp-year[data-y="' + String(y).replace(/["\\]/g, "\\$&") + '"]'); if (!h) return;
           var t = h.querySelector(".grp-toggle");
           if (t.getAttribute("aria-expanded") === "false") toggleYear(y, t);
           h.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1071,7 +1101,7 @@ window.__egAccent()})();</script>
     var closing = tg.getAttribute("aria-expanded") === "true";
     if (closing) collapsed[y] = true; else delete collapsed[y];
     tg.setAttribute("aria-expanded", String(!closing));
-    var nodes = $("grid").querySelectorAll('li.grp-month[data-y="' + y + '"]');
+    var nodes = $("grid").querySelectorAll('li.grp-month[data-y="' + String(y).replace(/["\\]/g, "\\$&") + '"]');
     for (var i = 0; i < nodes.length; i++) nodes[i].hidden = closing;
     savePrefs();
   }
@@ -1085,6 +1115,7 @@ window.__egAccent()})();</script>
   }
   $("q").addEventListener("input", renderGrid);
   $("sort").addEventListener("change", function () { renderGrid(); savePrefs(); });
+  $("group").addEventListener("change", function () { renderGrid(); savePrefs(); });
   $("clear-examples").addEventListener("click", function () {
     var ex = games.filter(function (g) { return g.example; });
     Promise.all(ex.map(function (g) { return backend.remove(g.id); })).catch(function () {});
@@ -1115,7 +1146,7 @@ window.__egAccent()})();</script>
     $("view-year").hidden = v !== "year";
     $("search-box").hidden = v === "year";
     $("summary").classList.toggle("only-backlog", v === "backlog");
-    $("sort").hidden = v === "backlog";
+    $("sort").hidden = v === "backlog"; $("group").hidden = v === "backlog";
     $("tab-lib").setAttribute("aria-selected", String(v === "lib"));
     $("tab-backlog").setAttribute("aria-selected", String(v === "backlog"));
     $("tab-year").setAttribute("aria-selected", String(v === "year"));
@@ -1798,7 +1829,7 @@ window.__egAccent()})();</script>
   // ---------- preferências lembradas, filtros, tema e desfazer ----------
   function loadPrefs() { try { var p = JSON.parse(localStorage.getItem(PREF_KEY) || "{}"); return p && typeof p === "object" ? p : {}; } catch (e) { return {}; } }
   function savePrefs() {
-    try { localStorage.setItem(PREF_KEY, JSON.stringify({ sort: $("sort").value, status: statusFilter, plat: platFilter, view: view, size: sizeNow(), collapsed: Object.keys(collapsed) })); } catch (e) {}
+    try { localStorage.setItem(PREF_KEY, JSON.stringify({ sort: $("sort").value, group: $("group").value, status: statusFilter, plat: platFilter, view: view, size: sizeNow(), collapsed: Object.keys(collapsed) })); } catch (e) {}
   }
   function viewFromHash() { try { return location.hash === "#resumo" ? "year" : location.hash === "#backlog" ? "backlog" : null; } catch (e) { return null; } }
   function syncHash(v) {
@@ -1902,9 +1933,10 @@ window.__egAccent()})();</script>
     var p = loadPrefs(), opts = $("sort").options;
     setSize(p.size); syncSwatches();
     for (var i = 0; i < opts.length; i++) if (opts[i].value === p.sort) $("sort").value = p.sort;
+    var gopts = $("group").options; for (var j = 0; j < gopts.length; j++) if (gopts[j].value === p.group) $("group").value = p.group;
     if (STATUSES.some(function (s) { return s.id === p.status; })) statusFilter = p.status;
     if (typeof p.plat === "string" && p.plat.length <= 60) platFilter = p.plat;
-    if (Array.isArray(p.collapsed)) p.collapsed.forEach(function (y) { if (/^(\d{4}|x)$/.test(String(y))) collapsed[String(y)] = true; });
+    if (Array.isArray(p.collapsed)) p.collapsed.forEach(function (y) { if (String(y).length <= 60) collapsed[String(y)] = true; });
     var v = viewFromHash() || (p.view === "year" || p.view === "backlog" ? p.view : "lib");
     if (v !== view) setView(v, true);
     syncThemeBtn();
