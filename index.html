@@ -435,6 +435,14 @@ body { background-color: var(--bg); background-image: radial-gradient(900px 520p
 #d-share { display: inline-flex; align-items: center; gap: 8px; }
 #d-share svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .summary.only-backlog > span:not(:last-child) { display: none; }
+.menu-sub { display: flex; flex-direction: column; margin: 2px 0 4px 12px; padding-left: 8px; border-left: 1px solid var(--glass-line); }
+.menu-sub button { min-height: 36px; font-size: 0.85rem; color: var(--muted); }
+.menu-sub button:hover, .menu-sub button:focus-visible { color: var(--fg); }
+.cov-modal { max-width: 420px; }
+.cov-bar { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.cov-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--accent); box-shadow: 0 0 12px var(--glow-soft); transition: width 0.25s ease; }
+.cov-line { margin: 14px 0 4px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cov-sub { margin: 0; min-height: 1.3em; color: var(--muted); font-size: 0.88rem; }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   li.rise { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -463,6 +471,11 @@ window.__egAccent()})();</script>
         <button type="button" role="menuitem" id="export-btn">Exportar</button>
         <button type="button" role="menuitem" id="import-btn">Importar</button>
         <button type="button" role="menuitem" id="covers-btn">Buscar capas que faltam</button>
+        <button type="button" role="menuitem" id="photo-btn" aria-expanded="false">Salvar foto</button>
+        <div class="menu-sub" id="photo-sub" hidden>
+          <button type="button" role="menuitem" id="photo-games">Jogos do ano</button>
+          <button type="button" role="menuitem" id="photo-stats">Estatísticas do ano</button>
+        </div>
         <button type="button" role="menuitem" id="clear-examples" hidden>Remover jogos de exemplo</button>
         <hr>
         <div class="swatches" id="swatches" role="group" aria-label="Cor de destaque"><span class="sw-label">Cor de destaque</span>
@@ -593,6 +606,16 @@ window.__egAccent()})();</script>
         <button type="submit" class="btn primary" id="save-btn">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="overlay" id="cov-overlay" hidden>
+  <div class="modal cov-modal" role="dialog" aria-modal="true" aria-labelledby="cov-title">
+    <h2 id="cov-title">Buscando capas</h2>
+    <div class="cov-bar" id="cov-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="cov-fill"></i></div>
+    <p class="cov-line" id="cov-line"></p>
+    <p class="cov-sub" id="cov-sub" aria-live="polite"></p>
+    <div class="m-foot"><span class="spacer"></span><button type="button" class="btn" id="cov-cancel">Cancelar</button></div>
   </div>
 </div>
 
@@ -1378,6 +1401,193 @@ window.__egAccent()})();</script>
       renderAll();
     });
   }
+  // ---------- salvar foto: jogos do ano e estatísticas do ano ----------
+  function photoYear() {
+    var ys = {}; games.forEach(function (g) { if (g.date) ys[g.date.slice(0, 4)] = true; });
+    var years = Object.keys(ys).sort().reverse();
+    if (!years.length) return null;
+    if (yearSel && years.indexOf(yearSel) >= 0) return yearSel;
+    var cur = String(new Date().getFullYear());
+    return years.indexOf(cur) >= 0 ? cur : years[0];
+  }
+  function downloadBlob(blob, name) {
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 6000);
+  }
+  function photoFonts() {
+    return (document.fonts && document.fonts.load) ? Promise.all([document.fonts.load("700 56px Sora"), document.fonts.load("600 28px Sora"), document.fonts.load("500 30px Manrope"), document.fonts.load("700 24px Manrope")]).catch(function () {}) : Promise.resolve();
+  }
+  function accentColor() { try { return getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#8b9bff"; } catch (e) { return "#8b9bff"; } }
+  function photoBg(c, W, H, acc) {
+    var g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0b0d14"); g.addColorStop(1, "#141829");
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    var r = c.createRadialGradient(W / 2, 0, 0, W / 2, 0, Math.max(W, 800) * 0.8); r.addColorStop(0, "rgba(140,150,255,0.22)"); r.addColorStop(1, "rgba(140,150,255,0)");
+    c.fillStyle = r; c.fillRect(0, 0, W, H);
+  }
+  function scoreFillStyle(c, cls, x, w) {
+    if (cls === "s10") { var g = c.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, "#8fe3ff"); g.addColorStop(1, "#b794ff"); return g; }
+    return { s0: "#ff6b6b", s2: "#ff9f43", s5: "#ffd23f", s7: "#4ade80" }[cls] || "#ffffff";
+  }
+  function canvasScale(W, H, want) {
+    var maxArea = 32e6, maxSide = 16000;
+    return Math.min(want, Math.sqrt(maxArea / (W * H)), maxSide / Math.max(W, H));
+  }
+  function coverTile(c, g, img, x, y, w, h, r, trophy, fs) {
+    c.save(); rrect(c, x, y, w, h, r); c.clip();
+    if (img) c.drawImage(img, x, y, w, h);
+    else {
+      var hue = hueOf(g.title), pg = c.createLinearGradient(x, y, x + w, y + h);
+      pg.addColorStop(0, "hsl(" + hue + " 38% 30%)"); pg.addColorStop(1, "hsl(" + ((hue + 40) % 360) + " 42% 15%)");
+      c.fillStyle = pg; c.fillRect(x, y, w, h);
+      c.textAlign = "center"; c.fillStyle = "#fff"; c.font = "700 " + Math.round(h * 0.2) + "px Sora, sans-serif"; c.fillText(mono(g.title), x + w / 2, y + h * 0.5);
+      c.font = "600 " + Math.round(fs) + "px Manrope, sans-serif"; c.fillStyle = "rgba(255,255,255,0.85)";
+      var ly = y + h * 0.5 + fs * 1.9; wrapText(c, g.title, w - 40, 3).forEach(function (ln) { c.fillText(ln, x + w / 2, ly); ly += fs * 1.3; });
+    }
+    c.restore();
+    rrect(c, x, y, w, h, r); c.lineWidth = Math.max(1.5, w / 200); c.strokeStyle = "rgba(255,255,255,0.22)"; c.stroke();
+    if (trophy) { var th = h * 0.17, tw = trophy.width * th / trophy.height; c.drawImage(trophy, x + w * 0.025, y + w * 0.025, tw, th); }
+    if (g.rating !== null && g.rating !== undefined) {
+      var t = fmtRating(g.rating), cls = scoreClass(g.rating), bf = Math.round(h * 0.062), bh = bf * 1.7, bx = x + w * 0.04, by = y + h - bh - w * 0.04;
+      c.font = "700 " + bf + "px Manrope, sans-serif"; c.textAlign = "left";
+      var bw = c.measureText(t).width + bf * 1.1;
+      rrect(c, bx, by, bw, bh, bh * 0.3); c.fillStyle = cls === "s10" ? scoreFillStyle(c, cls, bx, bw) : "rgba(10,12,16,0.88)"; c.fill();
+      c.fillStyle = cls === "s10" ? "#0f1220" : scoreFillStyle(c, cls, bx, bw); c.fillText(t, bx + bf * 0.55, by + bh * 0.5 + bf * 0.35);
+    }
+  }
+
+  function savePhotoGames() {
+    var year = photoYear();
+    if (!year) { ioStatus("Registre jogos com data para salvar a foto.", true); return; }
+    var list = games.filter(function (g) { return isDone(g) && g.date && g.date.slice(0, 4) === year; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.createdAt || 0) - (b.createdAt || 0); });
+    if (!list.length) { ioStatus("Nenhum jogo terminado em " + year + ".", true); return; }
+    ioStatus("Gerando foto…");
+    var n = list.length, cols = n <= 2 ? n : n <= 6 ? 3 : n <= 12 ? 4 : n <= 20 ? 5 : n <= 30 ? 6 : n <= 42 ? 7 : 8;
+    var CW = 400, CH = 600, GAP = 32, M = 96, rows = Math.ceil(n / cols), HEAD = 400, FOOT = 150;
+    var gridW = cols * CW + (cols - 1) * GAP, W = Math.max(gridW + 2 * M, 1500), H = HEAD + rows * CH + (rows - 1) * GAP + FOOT;
+    var sc = canvasScale(W, H, 1), cv = document.createElement("canvas");
+    cv.width = Math.round(W * sc); cv.height = Math.round(H * sc);
+    var c = cv.getContext("2d"), logoEl = document.querySelector("#brand img"), acc = accentColor();
+    return Promise.all([photoFonts(), logoEl ? loadImg(logoEl.src) : null, loadImg(TROPHY)].concat(list.map(function (g) { return g.cover ? loadImg(g.cover) : null; }))).then(function (r) {
+      var logo = r[1], trophy = r[2], imgs = r.slice(3);
+      c.scale(sc, sc); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+      photoBg(c, W, H, acc);
+      c.textAlign = "center"; c.textBaseline = "alphabetic";
+      if (logo) { var lh = 110, lw = logo.width * lh / logo.height; c.drawImage(logo, (W - lw) / 2, 60, lw, lh); }
+      c.fillStyle = "#ffffff"; c.font = "700 76px Sora, sans-serif"; c.fillText("Jogos terminados em " + year, W / 2, 290);
+      var av = avgOf(list); c.fillStyle = "rgba(255,255,255,0.7)"; c.font = "500 38px Manrope, sans-serif";
+      c.fillText(n + (n === 1 ? " jogo" : " jogos") + (av === null ? "" : " · nota média " + fmtRating(av)), W / 2, 350);
+      list.forEach(function (g, i) {
+        var row = Math.floor(i / cols), inRow = Math.min(cols, n - row * cols), col = i % cols;
+        var x = (W - gridW) / 2 + col * (CW + GAP) + (cols - inRow) * (CW + GAP) / 2, y = HEAD + row * (CH + GAP);
+        coverTile(c, g, imgs[i], x, y, CW, CH, 26, g.status === "platinado" ? trophy : null, 34);
+      });
+      c.textAlign = "center"; c.fillStyle = "rgba(255,255,255,0.45)"; c.font = "600 28px Manrope, sans-serif";
+      c.fillText("ENDGAME · GABRIEL MOURA", W / 2, H - 60);
+      return new Promise(function (res) { cv.toBlob(function (bl) { res(bl); }, "image/jpeg", 0.95); });
+    }).then(function (blob) {
+      if (!blob) throw new Error("img");
+      downloadBlob(blob, "endgame-jogos-" + year + ".jpg"); ioStatus("Foto salva: jogos de " + year + ".");
+    }).catch(function () { ioStatus("Não foi possível gerar a foto agora.", true); });
+  }
+
+  function savePhotoStats() {
+    var year = photoYear();
+    if (!year) { ioStatus("Registre jogos com data para salvar a foto.", true); return; }
+    var inYear = games.filter(function (g) { return g.date && g.date.slice(0, 4) === year; });
+    var done = inYear.filter(isDone), plat = inYear.filter(function (g) { return g.status === "platinado"; }), drop = inYear.filter(function (g) { return g.status === "dropado"; });
+    var avg = avgOf(inYear), rated = inYear.filter(function (g) { return g.rating !== null; });
+    var counts = []; for (var i = 0; i < 12; i++) counts.push(0);
+    done.forEach(function (g) { counts[Number(g.date.slice(5, 7)) - 1]++; });
+    var bk = [0, 0, 0, 0]; rated.forEach(function (g) { bk[g.rating < 5 ? 0 : g.rating < 7 ? 1 : g.rating < 9 ? 2 : 3]++; });
+    var ratRows = [{ label: "9 a 10", n: bk[3] }, { label: "7 a 8,5", n: bk[2] }, { label: "5 a 6,5", n: bk[1] }, { label: "0 a 4,5", n: bk[0] }];
+    var pc = {}; done.forEach(function (g) { pc[g.platform] = (pc[g.platform] || 0) + 1; });
+    var platRows = Object.keys(pc).map(function (p) { return { label: p, n: pc[p] }; }).sort(function (a, b) { return b.n - a.n; }).slice(0, 5);
+    var best = rated.filter(isDone).sort(function (a, b) { return b.rating - a.rating || (a.date < b.date ? 1 : -1); }).slice(0, 5);
+    ioStatus("Gerando foto…");
+    var W = 1080, M = 48, CWD = W - 2 * M, GAP = 16;
+    var yTiles = 250, yBars = yTiles + 120 + GAP + 8, hBars = 340, yTwo = yBars + hBars + GAP, hTwo = 70 + Math.max(4, platRows.length) * 52 + 20;
+    var yBest = yTwo + hTwo + GAP, hBest = best.length ? 76 + best.length * 118 + 12 : 0;
+    var H = yBest + hBest + (best.length ? GAP : 0) + 90;
+    var sc = canvasScale(W, H, 3), cv = document.createElement("canvas");
+    cv.width = Math.round(W * sc); cv.height = Math.round(H * sc);
+    var c = cv.getContext("2d"), logoEl = document.querySelector("#brand img"), acc = accentColor();
+    return Promise.all([photoFonts(), logoEl ? loadImg(logoEl.src) : null].concat(best.map(function (g) { return g.cover ? loadImg(g.cover) : null; }))).then(function (r) {
+      var logo = r[1], imgs = r.slice(2);
+      c.scale(sc, sc); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+      photoBg(c, W, H, acc); c.textBaseline = "alphabetic";
+      function panelBox(x, y, w, h, title) {
+        rrect(c, x, y, w, h, 20); c.fillStyle = "rgba(255,255,255,0.06)"; c.fill(); c.lineWidth = 1.5; c.strokeStyle = "rgba(255,255,255,0.15)"; c.stroke();
+        c.textAlign = "left"; c.fillStyle = "#d5d9ee"; c.font = "700 24px Manrope, sans-serif"; c.fillText(title, x + 26, y + 44);
+      }
+      function hrows(rows, x, y, w) {
+        var mx = Math.max.apply(null, rows.map(function (q) { return q.n; })) || 1, lw = 150, cw = 54, tw = w - lw - cw - 52;
+        rows.forEach(function (q, k) {
+          var ry = y + k * 52; c.textAlign = "left"; c.fillStyle = "rgba(255,255,255,0.78)"; c.font = "500 22px Manrope, sans-serif";
+          c.fillText(wrapText(c, q.label, lw - 8, 1)[0], x + 26, ry + 26);
+          rrect(c, x + 26 + lw, ry + 10, tw, 14, 7); c.fillStyle = "rgba(255,255,255,0.08)"; c.fill();
+          var bw = Math.max(q.n ? 14 : 0, tw * q.n / mx); if (bw) { rrect(c, x + 26 + lw, ry + 10, bw, 14, 7); c.fillStyle = acc; c.fill(); }
+          c.textAlign = "right"; c.fillStyle = "#ffffff"; c.font = "700 22px Manrope, sans-serif"; c.fillText(String(q.n), x + w - 26, ry + 27);
+        });
+      }
+      c.textAlign = "center";
+      if (logo) { var lh = 70, lw2 = logo.width * lh / logo.height; c.drawImage(logo, (W - lw2) / 2, 44, lw2, lh); }
+      c.fillStyle = "#ffffff"; c.font = "700 56px Sora, sans-serif"; c.fillText("Resumo de " + year, W / 2, 190);
+      // quadros de números
+      var tw4 = (CWD - 3 * GAP) / 4;
+      [[done.length, "finalizados"], [plat.length, "platinas"], [drop.length, "dropados"], [avg === null ? "–" : fmtRating(avg), "nota média"]].forEach(function (t, k) {
+        var x = M + k * (tw4 + GAP);
+        rrect(c, x, yTiles, tw4, 120, 20); c.fillStyle = "rgba(255,255,255,0.06)"; c.fill(); c.lineWidth = 1.5; c.strokeStyle = "rgba(255,255,255,0.15)"; c.stroke();
+        c.textAlign = "center"; c.fillStyle = "#ffffff"; c.font = "700 50px Sora, sans-serif"; c.fillText(String(t[0]), x + tw4 / 2, yTiles + 66);
+        c.fillStyle = "rgba(255,255,255,0.65)"; c.font = "500 21px Manrope, sans-serif"; c.fillText(t[1], x + tw4 / 2, yTiles + 98);
+      });
+      // finalizados por mês
+      panelBox(M, yBars, CWD, hBars, "Finalizados por mês");
+      var mx = Math.max.apply(null, counts), bwid = (CWD - 52) / 12, track = 190, base = yBars + 62 + 28 + track;
+      counts.forEach(function (n, k) {
+        var cx = M + 26 + k * bwid + bwid / 2, bh = mx ? Math.round(n / mx * track) : 0, w = Math.min(44, bwid - 14);
+        rrect(c, cx - w / 2, base - track, w, track, 8); c.fillStyle = "rgba(255,255,255,0.05)"; c.fill();
+        if (bh) { rrect(c, cx - w / 2, base - bh, w, bh, 8); c.fillStyle = acc; c.fill(); }
+        c.textAlign = "center"; c.fillStyle = "#ffffff"; c.font = "700 21px Manrope, sans-serif"; if (n) c.fillText(String(n), cx, base - bh - 10);
+        c.fillStyle = "rgba(255,255,255,0.62)"; c.font = "500 20px Manrope, sans-serif"; c.fillText(MONTHS[k], cx, base + 32);
+      });
+      // notas e plataformas
+      var pw = (CWD - GAP) / 2;
+      panelBox(M, yTwo, pw, hTwo, "Distribuição das notas"); hrows(ratRows, M, yTwo + 66, pw);
+      panelBox(M + pw + GAP, yTwo, pw, hTwo, "Plataformas");
+      if (platRows.length) hrows(platRows, M + pw + GAP, yTwo + 66, pw);
+      else { c.textAlign = "left"; c.fillStyle = "rgba(255,255,255,0.6)"; c.font = "500 22px Manrope, sans-serif"; c.fillText("Nenhum jogo finalizado.", M + pw + GAP + 26, yTwo + 100); }
+      // melhores do ano
+      if (best.length) {
+        panelBox(M, yBest, CWD, hBest, "Melhores do ano");
+        best.forEach(function (g, k) {
+          var ry = yBest + 66 + k * 118, tx = M + 26, th = 100, tw = 66;
+          coverTile(c, { title: g.title, rating: null }, imgs[k], tx, ry, tw, th, 8, null, 10);
+          var nx = tx + tw + 22, maxw = CWD - 26 - tw - 22 - 26 - 130;
+          c.textAlign = "left"; c.fillStyle = "#ffffff"; c.font = "600 28px Sora, sans-serif"; c.fillText(wrapText(c, g.title, maxw, 1)[0], nx, ry + 38);
+          c.fillStyle = "rgba(255,255,255,0.65)"; c.font = "500 21px Manrope, sans-serif"; c.fillText(wrapText(c, g.platform + " · " + statusLabel(g.status) + " em " + fmtDate(g.date), maxw, 1)[0], nx, ry + 72);
+          var t = fmtRating(g.rating), cls = scoreClass(g.rating);
+          c.textAlign = "right"; c.font = "700 44px Sora, sans-serif"; c.fillStyle = scoreFillStyle(c, cls, M + CWD - 26 - 110, 110); c.fillText(t, M + CWD - 26, ry + 62);
+        });
+      }
+      c.textAlign = "center"; c.fillStyle = "rgba(255,255,255,0.45)"; c.font = "600 22px Manrope, sans-serif"; c.fillText("ENDGAME · GABRIEL MOURA", W / 2, H - 36);
+      return new Promise(function (res) { cv.toBlob(function (bl) { res(bl); }, "image/png"); });
+    }).then(function (blob) {
+      if (!blob) throw new Error("img");
+      downloadBlob(blob, "endgame-resumo-" + year + ".png"); ioStatus("Foto salva: estatísticas de " + year + ".");
+    }).catch(function () { ioStatus("Não foi possível gerar a foto agora.", true); });
+  }
+  $("photo-btn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    var sub = $("photo-sub"), open = sub.hidden, y = photoYear();
+    $("photo-games").textContent = y ? "Jogos de " + y : "Jogos do ano";
+    $("photo-stats").textContent = y ? "Estatísticas de " + y : "Estatísticas do ano";
+    sub.hidden = !open; this.setAttribute("aria-expanded", String(open));
+  });
+  menuBtn.addEventListener("click", function () { $("photo-sub").hidden = true; $("photo-btn").setAttribute("aria-expanded", "false"); });
+  $("photo-games").addEventListener("click", savePhotoGames);
+  $("photo-stats").addEventListener("click", savePhotoStats);
+
   // ---------- compartilhar: imagem do jogo + texto ----------
   var SHARE_VERB = { zerado: "terminei", platinado: "platinei", dropado: "dropei" };
   function shareText(g) {
@@ -1497,7 +1707,6 @@ window.__egAccent()})();</script>
   });
 
   // ---------- buscar de novo as capas que faltam (útil depois de importar, pois o JSON vai sem capas) ----------
-  var covBusy = false;
   function sgFirstCover(title) {
     return sgFetch("/search/autocomplete/" + encodeURIComponent(title)).then(function (res) {
       if (!res.length) return null;
@@ -1511,35 +1720,67 @@ window.__egAccent()})();</script>
         .then(function (bl) { return processImage(new File([bl], "capa", { type: bl.type || "image/jpeg" })); });
     });
   }
-  function fetchMissingCovers(prefix, only) {
+  var covBusy = false, covCancel = false;
+  function covOpen() {
+    covCancel = false;
+    $("cov-title").textContent = "Buscando capas"; $("cov-line").textContent = "Preparando…"; $("cov-sub").textContent = "";
+    $("cov-fill").style.width = "0%"; $("cov-bar").setAttribute("aria-valuenow", "0");
+    var cb = $("cov-cancel"); cb.textContent = "Cancelar"; cb.disabled = false;
+    $("cov-overlay").hidden = false; document.body.style.overflow = "hidden"; cb.focus();
+  }
+  function covProgress(done, n, line, found, miss) {
+    var pct = Math.round(done / n * 100);
+    $("cov-fill").style.width = pct + "%"; $("cov-bar").setAttribute("aria-valuenow", String(pct));
+    if (line !== null) $("cov-line").textContent = line;
+    $("cov-sub").textContent = found + (found === 1 ? " capa encontrada" : " capas encontradas") + (miss ? " · " + miss + " sem resultado" : "");
+  }
+  function covFinish(title, line) {
+    $("cov-title").textContent = title; $("cov-line").textContent = line;
+    var cb = $("cov-cancel"); cb.textContent = "Fechar"; cb.disabled = false; cb.focus();
+  }
+  function covClose() { $("cov-overlay").hidden = true; document.body.style.overflow = ""; }
+  $("cov-cancel").addEventListener("click", function () {
+    if (covBusy) { covCancel = true; this.disabled = true; this.textContent = "Cancelando…"; } else covClose();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" || $("cov-overlay").hidden) return;
+    if (covBusy) { covCancel = true; var cb = $("cov-cancel"); cb.disabled = true; cb.textContent = "Cancelando…"; } else covClose();
+  });
+  function fetchMissingCovers(prefix, only, ui) {
     prefix = prefix ? prefix + " " : "";
     if (covBusy) return Promise.resolve();
     var list = (only || games.filter(function (g) { return !g.example; }).map(function (g) { return { id: g.id, doc: toDoc(g) }; })).filter(function (it) { return !it.doc.cover; });
     if (!list.length) { ioStatus(prefix + "Todos os jogos já têm capa."); return Promise.resolve(); }
-    if (!SGDB_PROXY || !backend) { ioStatus(prefix + "A busca de capas não está configurada.", !!prefix === false); return Promise.resolve(); }
+    if (!SGDB_PROXY || !backend) { ioStatus(prefix + "A busca de capas não está configurada.", !prefix); return Promise.resolve(); }
     covBusy = true;
-    var found = 0, miss = 0, fails = 0, i = 0;
+    if (ui) covOpen();
+    var found = 0, miss = 0, fails = 0, i = 0, n = list.length;
     function step() {
-      if (i >= list.length) return Promise.resolve();
+      if (i >= n || covCancel) return Promise.resolve();
       var it = list[i++];
-      ioStatus("Importando capas " + i + " de " + list.length + "…");
+      if (ui) covProgress(i - 1, n, "Buscando " + i + " de " + n + ": " + it.doc.title, found, miss);
+      else ioStatus("Importando capas " + i + " de " + n + "…");
       return sgFirstCover(it.doc.title).then(function (cover) {
         fails = 0;
         if (!cover) { miss++; return; }
         var doc = {}; for (var k in it.doc) doc[k] = it.doc[k]; doc.cover = cover;
         return Promise.resolve(backend.save(it.id, doc)).then(function () { found++; });
       }, function () { miss++; fails++; }).then(function () {
+        if (ui) covProgress(i, n, null, found, miss);
         if (fails >= 3) return Promise.reject(new Error("rede"));
         return new Promise(function (r) { setTimeout(r, 250); }).then(step);
       });
     }
     return step().then(function () {
-      ioStatus(prefix + found + (found === 1 ? " capa encontrada" : " capas encontradas") + (miss ? ", " + miss + " sem resultado." : "."));
+      var res = found + (found === 1 ? " capa encontrada" : " capas encontradas") + (miss ? ", " + miss + " sem resultado." : ".");
+      if (ui) covFinish(covCancel ? "Busca cancelada" : "Busca concluída", covCancel ? "Parou em " + (i - 0) + " de " + n + ". " + res : res);
+      else ioStatus(prefix + res);
     }, function () {
-      ioStatus(prefix + "A busca de capas parou: não foi possível acessar o SteamGridDB. Encontradas até aqui: " + found + ".", true);
+      if (ui) covFinish("Busca interrompida", "Não foi possível acessar o SteamGridDB. Encontradas até aqui: " + found + ".");
+      else ioStatus(prefix + "A busca de capas parou: não foi possível acessar o SteamGridDB. Encontradas até aqui: " + found + ".", true);
     }).then(function () { covBusy = false; });
   }
-  $("covers-btn").addEventListener("click", function () { fetchMissingCovers("", null); });
+  $("covers-btn").addEventListener("click", function () { fetchMissingCovers("", null, true); });
 
   // ---------- cabeçalho que encolhe ao rolar (com folga para não ficar piscando) ----------
   (function () {
@@ -1683,6 +1924,7 @@ window.__egAccent()})();</script>
   boot();
 })();
 </script>
+
 
 
 </body>
