@@ -407,6 +407,19 @@ body { background-color: var(--bg); background-image: radial-gradient(900px 520p
 .menu .sw { width: 22px; height: 22px; min-height: 0; padding: 0; border-radius: 50%; background: var(--c); border: 2px solid transparent; box-shadow: 0 0 0 1px var(--glass-line); }
 .menu .sw:hover, .menu .sw:focus-visible { background: var(--c); box-shadow: 0 0 10px var(--c); }
 .menu .sw[aria-pressed="true"] { border-color: var(--bg); box-shadow: 0 0 0 2px var(--fg); }
+/* busca de jogos e capas (SteamGridDB) */
+.sg-field { position: relative; }
+.sg-list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto; border-radius: 12px; background: var(--glass-strong); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.7), 0 0 30px -16px var(--glow); }
+.sg-list li { padding: 9px 12px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; overflow-wrap: anywhere; }
+.sg-list li[aria-selected="true"], .sg-list li:hover { background: var(--glow-soft); }
+.sg-list li.sg-note { color: var(--muted); cursor: default; }
+.sg-list li.sg-note:hover { background: none; }
+.sg-covers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.sg-covers .sg-lab { grid-column: 1 / -1; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.sg-covers button { padding: 0; aspect-ratio: 2 / 3; border-radius: 6px; overflow: hidden; border: 1px solid var(--glass-line); background: var(--surface-2); }
+.sg-covers button img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sg-covers button:hover { border-color: var(--accent); }
+.sg-covers button[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 12px var(--glow-soft); }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   li.rise { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -520,12 +533,14 @@ window.__egAccent()})();</script>
             <button type="button" class="btn" id="rm-cover" hidden>Remover</button>
           </div>
           <input type="file" id="file" accept="image/*" hidden>
+          <div class="sg-covers" id="sg-covers" hidden></div>
         </div>
         <div class="fields">
-          <div class="field">
+          <div class="field sg-field">
             <label for="title">Jogo</label>
             <input type="text" id="title" list="game-suggestions" placeholder="Digite ou escolha da lista" maxlength="120" required>
             <datalist id="game-suggestions"></datalist>
+            <ul class="sg-list" id="sg-list" role="listbox" aria-label="Sugestões do SteamGridDB" hidden></ul>
           </div>
           <div class="field">
             <label for="status-sel">Status</label>
@@ -729,11 +744,92 @@ window.__egAccent()})();</script>
   function syncReview() { $("review-count").textContent = $("review").value.length + "/280"; }
   $("review").addEventListener("input", syncReview);
 
+  // ---------- busca de jogos e capas no SteamGridDB ----------
+  var SGDB_KEY = "151b1820ad8fb21523b30165d9364b4d", SGDB_API = "https://www.steamgriddb.com/api/v2";
+  var sgTimer = null, sgSeq = 0, sgItems = [], sgIdx = -1;
+  function sgFetch(path) {
+    return fetch(SGDB_API + path, { headers: { Authorization: "Bearer " + SGDB_KEY } }).then(function (r) {
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function (j) { if (!j || !j.success) throw new Error("api"); return j.data || []; });
+  }
+  function sgClose() { $("sg-list").hidden = true; sgIdx = -1; }
+  function sgReset() { clearTimeout(sgTimer); sgSeq++; sgItems = []; sgClose(); var c = $("sg-covers"); c.hidden = true; c.innerHTML = ""; }
+  function sgMark(i) {
+    sgIdx = i;
+    var lis = $("sg-list").children;
+    for (var k = 0; k < lis.length; k++) lis[k].setAttribute("aria-selected", String(k === i));
+  }
+  function sgShowList(items, note) {
+    var ul = $("sg-list"); ul.innerHTML = ""; sgItems = items; sgIdx = -1;
+    if (note) ul.appendChild(el("li", "sg-note", note));
+    items.forEach(function (it, i) {
+      var li = el("li", "", it.name); li.setAttribute("role", "option"); li.setAttribute("aria-selected", "false");
+      li.addEventListener("mousedown", function (e) { e.preventDefault(); sgPick(it); });
+      ul.appendChild(li);
+    });
+    ul.hidden = !note && !items.length;
+  }
+  function sgSearch(term) {
+    var my = ++sgSeq;
+    sgFetch("/search/autocomplete/" + encodeURIComponent(term)).then(function (data) {
+      if (my !== sgSeq) return;
+      sgShowList(data.slice(0, 6), data.length ? "" : "Nenhum jogo encontrado.");
+    }, function () {
+      if (my !== sgSeq) return;
+      sgShowList([], "Busca indisponível agora. Digite o nome e escolha a capa manualmente.");
+    });
+  }
+  $("title").addEventListener("input", function () {
+    clearTimeout(sgTimer);
+    var t = this.value.trim();
+    if (t.length < 2) { sgSeq++; sgClose(); return; }
+    sgTimer = setTimeout(function () { sgSearch(t); }, 350);
+  });
+  $("title").addEventListener("keydown", function (e) {
+    var ul = $("sg-list"); if (ul.hidden || !sgItems.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); sgMark((sgIdx + 1) % sgItems.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sgMark((sgIdx - 1 + sgItems.length) % sgItems.length); }
+    else if (e.key === "Enter" && sgIdx >= 0) { e.preventDefault(); sgPick(sgItems[sgIdx]); }
+    else if (e.key === "Escape") { e.stopPropagation(); sgClose(); }
+  });
+  $("title").addEventListener("blur", function () { setTimeout(sgClose, 120); });
+  function sgPick(it) {
+    $("title").value = it.name; sgReset();
+    var my = ++sgSeq, box = $("sg-covers");
+    setStatus("Buscando capas…");
+    sgFetch("/grids/game/" + encodeURIComponent(it.id) + "?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false").then(function (data) {
+      if (my !== sgSeq) return;
+      var list = data.filter(function (g) { return g && g.url; }).slice(0, 9);
+      if (!list.length) { setStatus("Nenhuma capa vertical encontrada para este jogo.", true); return; }
+      setStatus("");
+      box.innerHTML = ""; box.appendChild(el("span", "sg-lab", "Capas encontradas"));
+      list.forEach(function (g, i) {
+        var b = el("button", ""); b.type = "button"; b.setAttribute("aria-label", "Usar capa " + (i + 1)); b.setAttribute("aria-pressed", "false");
+        var im = document.createElement("img"); im.src = g.thumb || g.url; im.alt = ""; im.loading = "lazy"; b.appendChild(im);
+        b.addEventListener("click", function () { sgUse(g.url, b); });
+        box.appendChild(b);
+      });
+      box.hidden = false;
+      if (!coverData) sgUse(list[0].url, box.children[1]);
+    }, function () { if (my === sgSeq) setStatus("Não foi possível buscar as capas agora.", true); });
+  }
+  function sgUse(url, btn) {
+    setStatus("Baixando capa…");
+    fetch(url).then(function (r) { if (!r.ok) throw new Error("http"); return r.blob(); }).then(function (bl) {
+      return processImage(new File([bl], "capa", { type: bl.type || "image/jpeg" }));
+    }).then(function (d) {
+      coverData = d; showCover(); setStatus("");
+      var bs = $("sg-covers").querySelectorAll("button");
+      for (var i = 0; i < bs.length; i++) bs[i].setAttribute("aria-pressed", String(bs[i] === btn));
+    }, function () { setStatus("Não foi possível baixar essa capa. Escolha outra ou envie uma imagem.", true); });
+  }
+
   function resetArm() { armed = false; clearTimeout(armedTimer); var b = $("del-btn"); b.textContent = "Excluir"; b.classList.remove("armed"); }
 
   function openModal(g) {
     lastFocus = document.activeElement;
-    editingId = g ? g.id : null;
+    editingId = g ? g.id : null; sgReset();
     coverData = g && g.cover ? g.cover : "";
     $("m-title").textContent = g ? "Editar jogo" : "Adicionar jogo";
     $("title").value = g ? g.title : "";
