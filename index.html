@@ -462,6 +462,7 @@ window.__egAccent()})();</script>
         <hr id="menu-hr">
         <button type="button" role="menuitem" id="export-btn">Exportar</button>
         <button type="button" role="menuitem" id="import-btn">Importar</button>
+        <button type="button" role="menuitem" id="covers-btn">Buscar capas que faltam</button>
         <button type="button" role="menuitem" id="clear-examples" hidden>Remover jogos de exemplo</button>
         <hr>
         <div class="swatches" id="swatches" role="group" aria-label="Cor de destaque"><span class="sw-label">Cor de destaque</span>
@@ -1258,8 +1259,8 @@ window.__egAccent()})();</script>
       var added = 0, updated = 0, i = 0;
       function next() {
         if (i >= items.length) {
-          ioStatus(added + (added === 1 ? " adicionado, " : " adicionados, ") + updated + (updated === 1 ? " atualizado." : " atualizados."));
-          return Promise.resolve();
+          var sum = added + (added === 1 ? " adicionado, " : " adicionados, ") + updated + (updated === 1 ? " atualizado." : " atualizados.");
+          return fetchMissingCovers(sum, items);
         }
         var it = items[i++];
         ioStatus("Importando " + i + " de " + items.length + "…");
@@ -1494,6 +1495,51 @@ window.__egAccent()})();</script>
       done(false);
     }).catch(function () { ioStatus("Não foi possível gerar a imagem agora.", true); }).then(function () { btn.disabled = false; });
   });
+
+  // ---------- buscar de novo as capas que faltam (útil depois de importar, pois o JSON vai sem capas) ----------
+  var covBusy = false;
+  function sgFirstCover(title) {
+    return sgFetch("/search/autocomplete/" + encodeURIComponent(title)).then(function (res) {
+      if (!res.length) return null;
+      var low = title.trim().toLowerCase();
+      var hit = res.filter(function (r) { return String(r.name).trim().toLowerCase() === low; })[0] || res[0];
+      return sgFetch("/grids/game/" + encodeURIComponent(hit.id) + "?dimensions=600x900,342x482,660x930&types=static&nsfw=false&humor=false");
+    }).then(function (list) {
+      var g = list && list.filter(function (x) { return x && x.url; })[0];
+      if (!g) return null;
+      return fetch(SGDB_PROXY.replace(/\/+$/, "") + "/img?u=" + encodeURIComponent(g.url)).then(function (r) { if (!r.ok) throw new Error("http"); return r.blob(); })
+        .then(function (bl) { return processImage(new File([bl], "capa", { type: bl.type || "image/jpeg" })); });
+    });
+  }
+  function fetchMissingCovers(prefix, only) {
+    prefix = prefix ? prefix + " " : "";
+    if (covBusy) return Promise.resolve();
+    var list = (only || games.filter(function (g) { return !g.example; }).map(function (g) { return { id: g.id, doc: toDoc(g) }; })).filter(function (it) { return !it.doc.cover; });
+    if (!list.length) { ioStatus(prefix + "Todos os jogos já têm capa."); return Promise.resolve(); }
+    if (!SGDB_PROXY || !backend) { ioStatus(prefix + "A busca de capas não está configurada.", !!prefix === false); return Promise.resolve(); }
+    covBusy = true;
+    var found = 0, miss = 0, fails = 0, i = 0;
+    function step() {
+      if (i >= list.length) return Promise.resolve();
+      var it = list[i++];
+      ioStatus("Importando capas " + i + " de " + list.length + "…");
+      return sgFirstCover(it.doc.title).then(function (cover) {
+        fails = 0;
+        if (!cover) { miss++; return; }
+        var doc = {}; for (var k in it.doc) doc[k] = it.doc[k]; doc.cover = cover;
+        return Promise.resolve(backend.save(it.id, doc)).then(function () { found++; });
+      }, function () { miss++; fails++; }).then(function () {
+        if (fails >= 3) return Promise.reject(new Error("rede"));
+        return new Promise(function (r) { setTimeout(r, 250); }).then(step);
+      });
+    }
+    return step().then(function () {
+      ioStatus(prefix + found + (found === 1 ? " capa encontrada" : " capas encontradas") + (miss ? ", " + miss + " sem resultado." : "."));
+    }, function () {
+      ioStatus(prefix + "A busca de capas parou: não foi possível acessar o SteamGridDB. Encontradas até aqui: " + found + ".", true);
+    }).then(function () { covBusy = false; });
+  }
+  $("covers-btn").addEventListener("click", function () { fetchMissingCovers("", null); });
 
   // ---------- cabeçalho que encolhe ao rolar (com folga para não ficar piscando) ----------
   (function () {
