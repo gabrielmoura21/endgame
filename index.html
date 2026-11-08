@@ -432,6 +432,9 @@ body { background-color: var(--bg); background-image: radial-gradient(900px 520p
 .topbar.shrunk { background: var(--glass-strong); box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7), 0 1px 0 0 var(--glow-soft); }
 .topbar.shrunk .inner { padding-block: 6px; }
 .topbar.shrunk .brand img { height: 34px; }
+#d-share { display: inline-flex; align-items: center; gap: 8px; }
+#d-share svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.summary.only-backlog > span:not(:last-child) { display: none; }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   li.rise { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -475,6 +478,7 @@ window.__egAccent()})();</script>
 <main class="inner">
   <nav class="tabs" role="tablist" aria-label="Seções">
     <button type="button" role="tab" class="tab" id="tab-lib" aria-selected="true">Biblioteca</button>
+    <button type="button" role="tab" class="tab" id="tab-backlog" aria-selected="false">Backlog</button>
     <button type="button" role="tab" class="tab" id="tab-year" aria-selected="false">Resumo do ano</button>
   </nav>
   <div id="view-lib">
@@ -604,7 +608,7 @@ window.__egAccent()})();</script>
         <p class="d-review" id="d-review"></p>
       </div>
     </div>
-    <div class="m-foot"><span class="spacer"></span><button type="button" class="btn" id="d-edit" hidden>Editar</button><button type="button" class="btn" id="d-close">Fechar</button></div>
+    <div class="m-foot"><span class="spacer"></span><button type="button" class="btn" id="d-share"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="M8.3 10.8l7.4-4.4M8.3 13.2l7.4 4.4"/></svg>Compartilhar</button><button type="button" class="btn" id="d-edit" hidden>Editar</button><button type="button" class="btn" id="d-close">Fechar</button></div>
   </div>
 </div>
 
@@ -847,7 +851,7 @@ window.__egAccent()})();</script>
     coverData = g && g.cover ? g.cover : "";
     $("m-title").textContent = g ? "Editar jogo" : "Adicionar jogo";
     $("title").value = g ? g.title : "";
-    stSel.value = g ? g.status : "zerado";
+    stSel.value = g ? g.status : (view === "backlog" ? "backlog" : "zerado");
     $("date").value = g && g.date ? g.date : todayISO();
     $("review").value = g ? g.review : "";
     syncReview();
@@ -902,11 +906,14 @@ window.__egAccent()})();</script>
   });
 
   // ---------- lista ----------
+  // cada aba trabalha com o seu conjunto: o backlog fica separado da biblioteca
+  function pool() { return games.filter(function (g) { return (view === "backlog") === (g.status === "backlog"); }); }
   function visibleGames() {
     var q = $("q").value.trim().toLowerCase();
-    var list = games.filter(function (g) { return (!statusFilter || g.status === statusFilter) && (!platFilter || g.platform === platFilter) && (!q || g.title.toLowerCase().indexOf(q) >= 0); });
+    var list = pool().filter(function (g) { return (view === "backlog" || !statusFilter || g.status === statusFilter) && (!platFilter || g.platform === platFilter) && (!q || g.title.toLowerCase().indexOf(q) >= 0); });
     var sort = $("sort").value;
     list.sort(function (a, b) {
+      if (view === "backlog") return (b.createdAt || 0) - (a.createdAt || 0);
       switch (sort) {
         case "date-asc": return missLast(a.date, b.date, 1);
         case "rating-desc": return missLast(a.rating, b.rating, -1) || missLast(a.date, b.date, -1);
@@ -929,8 +936,8 @@ window.__egAccent()})();</script>
   }
   function renderChips() {
     var box = $("chips"); box.innerHTML = "";
-    var used = {}; games.forEach(function (g) { used[g.platform] = (used[g.platform] || 0) + 1; });
-    if (ready && platFilter && !used[platFilter]) platFilter = "";
+    var used = {}; pool().forEach(function (g) { used[g.platform] = (used[g.platform] || 0) + 1; });
+    if (view !== "backlog" && ready && platFilter && !used[platFilter]) platFilter = "";
     function chip(label, val) {
       var b = document.createElement("button"); b.type = "button"; b.className = "chip"; b.textContent = label;
       b.setAttribute("aria-pressed", String(platFilter === val));
@@ -959,12 +966,13 @@ window.__egAccent()})();</script>
       }
       return;
     }
+    if (!pool().length) { if (view === "backlog") { empty("Seu backlog está vazio", canWrite ? "Adicione os jogos que você quer jogar." : "Nenhum jogo no backlog por enquanto.", canWrite); return; } }
     if (!games.length) { empty("Nenhum jogo terminado ainda", canWrite ? "Registre o primeiro e coloque a capa que quiser." : "Quem mantém esta lista ainda não registrou nada.", canWrite); return; }
     var list = visibleGames();
     if (!list.length) { empty("Nada encontrado", "Nenhum jogo corresponde à busca ou ao filtro.", false); return; }
     // com ordenação por data, os jogos ficam em prateleiras: ano e, dentro dele, mês
     var sortVal = $("sort").value;
-    var grouped = sortVal === "date-desc" || sortVal === "date-asc";
+    var grouped = view !== "backlog" && (sortVal === "date-desc" || sortVal === "date-asc");
     if (grouped) ul.className = "grid grouped";
     var MONTH_FULL = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
     var yCount = {}, mCount = {}, cur = ul, lastY = null, lastM = null, order = [];
@@ -1061,8 +1069,9 @@ window.__egAccent()})();</script>
   // ---------- status, abas e resumo do ano ----------
   function renderStatusChips() {
     var box = $("status-chips"); box.innerHTML = "";
-    var counts = {}; games.forEach(function (g) { counts[g.status] = (counts[g.status] || 0) + 1; });
-    if (ready && statusFilter && !counts[statusFilter]) statusFilter = "";
+    var P = pool(), counts = {}; P.forEach(function (g) { counts[g.status] = (counts[g.status] || 0) + 1; });
+    box.parentNode.hidden = view === "backlog";
+    if (view !== "backlog" && ready && statusFilter && !counts[statusFilter]) statusFilter = "";
     function chip(label, val, n) {
       var b = document.createElement("button"); b.type = "button"; b.className = "chip";
       if (val === "platinado") b.appendChild(trophyImg("chip-ico"));
@@ -1071,22 +1080,26 @@ window.__egAccent()})();</script>
       b.addEventListener("click", function () { statusFilter = val; refreshFilters(); var pr = $("status-chips").querySelector('[aria-pressed="true"]'); if (pr) pr.focus(); });
       box.appendChild(b);
     }
-    chip("Todos", "", games.length);
+    chip("Todos", "", P.length);
     STATUSES.forEach(function (s) { if (counts[s.id]) chip(s.label, s.id, counts[s.id]); });
   }
 
   var MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
   function setView(v, silent) {
     view = v;
-    $("view-lib").hidden = v !== "lib";
+    $("view-lib").hidden = v === "year";
     $("view-year").hidden = v !== "year";
-    $("search-box").hidden = v !== "lib";
+    $("search-box").hidden = v === "year";
+    $("summary").classList.toggle("only-backlog", v === "backlog");
+    $("sort").hidden = v === "backlog";
     $("tab-lib").setAttribute("aria-selected", String(v === "lib"));
+    $("tab-backlog").setAttribute("aria-selected", String(v === "backlog"));
     $("tab-year").setAttribute("aria-selected", String(v === "year"));
-    if (v === "year") renderYear();
+    if (v === "year") renderYear(); else { renderStatusChips(); renderChips(); renderFilterBar(); renderGrid(); }
     if (!silent) { syncHash(v); savePrefs(); }
   }
   $("tab-lib").addEventListener("click", function () { setView("lib"); });
+  $("tab-backlog").addEventListener("click", function () { setView("backlog"); });
   $("tab-year").addEventListener("click", function () { setView("year"); });
   $("year-sel").addEventListener("change", function () { yearSel = this.value; renderYear(); });
 
@@ -1309,7 +1322,7 @@ window.__egAccent()})();</script>
     document.body.classList.toggle("editing", on);
     $("edit-banner").hidden = !on;
     $("edit-toggle").textContent = on ? "Concluir edição" : "Editar jogos";
-    if (on && view !== "lib") setView("lib");
+    if (on && view === "year") setView("lib");
     renderGrid();
   }
   $("edit-toggle").addEventListener("click", function () { setEdit(!editMode); });
@@ -1364,6 +1377,124 @@ window.__egAccent()})();</script>
       renderAll();
     });
   }
+  // ---------- compartilhar: imagem do jogo + texto ----------
+  var SHARE_VERB = { zerado: "terminei", platinado: "platinei", dropado: "dropei" };
+  function shareText(g) {
+    var d = g.date ? new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+    if (g.status === "backlog") return g.title + " está no meu backlog.";
+    return "Eu " + (SHARE_VERB[g.status] || "terminei") + " " + g.title + (g.rating !== null ? " e dei nota " + fmtRating(g.rating) : "") + (d ? " no dia " + d : "") + "!";
+  }
+  function loadImg(src) { return new Promise(function (res) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = function () { res(null); }; i.src = src; }); }
+  function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  function wrapText(c, text, maxW, maxLines) {
+    var words = String(text).split(/\s+/), lines = [], cur = "";
+    for (var i = 0; i < words.length; i++) {
+      var t = cur ? cur + " " + words[i] : words[i];
+      if (c.measureText(t).width <= maxW || !cur) cur = t; else { lines.push(cur); cur = words[i]; }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      var last = lines[maxLines - 1];
+      while (last.length > 1 && c.measureText(last + "…").width > maxW) last = last.slice(0, -1);
+      lines[maxLines - 1] = last.replace(/[\s.,;:!?-]+$/, "") + "…";
+    }
+    return lines;
+  }
+  function buildShareImage(g) {
+    var W = 1080, H = 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    var c = cv.getContext("2d"), hue = hueOf(g.title);
+    var logoEl = document.querySelector("#brand img");
+    var fontsReady = (document.fonts && document.fonts.load) ? Promise.all([document.fonts.load("700 56px Sora"), document.fonts.load("500 30px Manrope"), document.fonts.load("700 24px Manrope")]).catch(function () {}) : Promise.resolve();
+    return Promise.all([g.cover ? loadImg(g.cover) : null, logoEl ? loadImg(logoEl.src) : null, g.status === "platinado" ? loadImg(TROPHY) : null, fontsReady]).then(function (r) {
+      var cover = r[0], logo = r[1], trophy = r[2];
+      // fundo: capa muito reduzida e ampliada (desfoque que funciona em qualquer navegador) ou degradê
+      if (cover) {
+        var t = document.createElement("canvas"); t.width = 27; t.height = 34;
+        t.getContext("2d").drawImage(cover, 0, 0, 27, 34);
+        c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high";
+        c.drawImage(t, 0, 0, W, H);
+      } else {
+        var bg = c.createLinearGradient(0, 0, W, H); bg.addColorStop(0, "hsl(" + hue + " 38% 30%)"); bg.addColorStop(1, "hsl(" + ((hue + 40) % 360) + " 42% 15%)");
+        c.fillStyle = bg; c.fillRect(0, 0, W, H);
+      }
+      var sh = c.createLinearGradient(0, 0, 0, H); sh.addColorStop(0, "rgba(8,10,18,0.45)"); sh.addColorStop(1, "rgba(8,10,18,0.78)");
+      c.fillStyle = sh; c.fillRect(0, 0, W, H);
+      // painel de vidro
+      rrect(c, 50, 40, W - 100, H - 80, 36); c.fillStyle = "rgba(255,255,255,0.07)"; c.fill();
+      c.lineWidth = 2; c.strokeStyle = "rgba(255,255,255,0.18)"; c.stroke();
+      c.textAlign = "center"; c.textBaseline = "alphabetic";
+      // logotipo
+      if (logo) { var lh = 76, lw = logo.width * lh / logo.height; c.drawImage(logo, (W - lw) / 2, 78, lw, lh); }
+      // capa
+      var cw = 400, ch = 600, cx = (W - cw) / 2, cy = 190;
+      c.save(); c.shadowColor = "rgba(160,170,255,0.55)"; c.shadowBlur = 50; rrect(c, cx, cy, cw, ch, 22); c.fillStyle = "#14161c"; c.fill(); c.restore();
+      c.save(); rrect(c, cx, cy, cw, ch, 22); c.clip();
+      if (cover) c.drawImage(cover, cx, cy, cw, ch);
+      else {
+        var pg = c.createLinearGradient(cx, cy, cx + cw, cy + ch); pg.addColorStop(0, "hsl(" + hue + " 38% 30%)"); pg.addColorStop(1, "hsl(" + ((hue + 40) % 360) + " 42% 15%)");
+        c.fillStyle = pg; c.fillRect(cx, cy, cw, ch);
+        c.fillStyle = "#fff"; c.font = "700 120px Sora, sans-serif"; c.fillText(mono(g.title), W / 2, cy + ch / 2 + 40);
+      }
+      c.restore();
+      rrect(c, cx, cy, cw, ch, 22); c.lineWidth = 2; c.strokeStyle = "rgba(255,255,255,0.28)"; c.stroke();
+      if (trophy) { var th = 96, tw = trophy.width * th / trophy.height; c.drawImage(trophy, cx + 10, cy + 10, tw, th); }
+      // selo de status
+      var y = cy + ch + 56, label = statusLabel(g.status).toUpperCase();
+      c.font = "700 24px Manrope, sans-serif";
+      var lbw = c.measureText(label.split("").join(" ")).width + 48;
+      rrect(c, (W - lbw) / 2, y - 32, lbw, 46, 23); c.fillStyle = "rgba(10,12,20,0.55)"; c.fill();
+      c.lineWidth = 2; c.strokeStyle = g.status === "platinado" ? "#b794ff" : "rgba(255,255,255,0.45)"; c.stroke();
+      c.fillStyle = g.status === "platinado" ? "#c9b3ff" : "#f1f2f7"; c.fillText(label.split("").join(" "), W / 2, y);
+      // título
+      y += 76; c.fillStyle = "#ffffff"; c.font = "700 58px Sora, sans-serif";
+      wrapText(c, g.title, 880, 2).forEach(function (ln) { c.fillText(ln, W / 2, y); y += 68; });
+      // plataforma · data
+      var when = g.date ? " · " + new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+      y += -6; c.fillStyle = "rgba(255,255,255,0.72)"; c.font = "500 30px Manrope, sans-serif";
+      c.fillText(wrapText(c, g.platform + when, 900, 1)[0], W / 2, y);
+      // nota
+      if (g.rating !== null) {
+        y += 104;
+        var num = fmtRating(g.rating), cls = scoreClass(g.rating);
+        c.font = "700 100px Sora, sans-serif"; var nw = c.measureText(num).width;
+        c.font = "500 40px Manrope, sans-serif"; var sw = c.measureText(" /10").width;
+        var x0 = (W - nw - sw) / 2; c.textAlign = "left";
+        c.font = "700 100px Sora, sans-serif";
+        if (cls === "s10") { var gr = c.createLinearGradient(x0, 0, x0 + nw, 0); gr.addColorStop(0, "#8fe3ff"); gr.addColorStop(1, "#b794ff"); c.fillStyle = gr; c.shadowColor = "rgba(150,160,255,0.6)"; c.shadowBlur = 26; }
+        else c.fillStyle = { s0: "#ff6b6b", s2: "#ff9f43", s5: "#ffd23f", s7: "#4ade80" }[cls];
+        c.fillText(num, x0, y); c.shadowBlur = 0;
+        c.fillStyle = "rgba(255,255,255,0.6)"; c.font = "500 40px Manrope, sans-serif"; c.fillText(" /10", x0 + nw, y);
+        c.textAlign = "center";
+      }
+      // resenha
+      if (g.review) {
+        y += 62; c.fillStyle = "rgba(255,255,255,0.92)"; c.font = "500 30px Manrope, sans-serif";
+        wrapText(c, "“" + g.review + "”", 840, 2).forEach(function (ln) { c.fillText(ln, W / 2, y); y += 42; });
+      }
+      return new Promise(function (res) { cv.toBlob(function (bl) { res(bl); }, "image/png"); });
+    });
+  }
+  function slug(t) { return String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "jogo"; }
+  $("d-share").addEventListener("click", function () {
+    var g = detailGame; if (!g) return;
+    var btn = $("d-share"); btn.disabled = true; ioStatus("Gerando imagem…");
+    var text = shareText(g);
+    buildShareImage(g).then(function (blob) {
+      if (!blob) throw new Error("img");
+      var file = new File([blob], "endgame-" + slug(g.title) + ".png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        ioStatus("");
+        return navigator.share({ files: [file], text: text }).catch(function (e) { if (!e || e.name !== "AbortError") throw e; });
+      }
+      var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      var done = function (copied) { ioStatus(copied ? "Imagem salva e texto copiado. Cole no WhatsApp ou no Discord." : "Imagem salva. Texto: " + text); };
+      if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      done(false);
+    }).catch(function () { ioStatus("Não foi possível gerar a imagem agora.", true); }).then(function () { btn.disabled = false; });
+  });
+
   // ---------- cabeçalho que encolhe ao rolar (com folga para não ficar piscando) ----------
   (function () {
     var bar = document.querySelector(".topbar"), on = false, tick = false;
@@ -1382,10 +1513,10 @@ window.__egAccent()})();</script>
   function savePrefs() {
     try { localStorage.setItem(PREF_KEY, JSON.stringify({ sort: $("sort").value, status: statusFilter, plat: platFilter, view: view, size: sizeNow(), collapsed: Object.keys(collapsed) })); } catch (e) {}
   }
-  function viewFromHash() { try { return location.hash === "#resumo" ? "year" : null; } catch (e) { return null; } }
+  function viewFromHash() { try { return location.hash === "#resumo" ? "year" : location.hash === "#backlog" ? "backlog" : null; } catch (e) { return null; } }
   function syncHash(v) {
     try {
-      var want = v === "year" ? "#resumo" : "";
+      var want = v === "year" ? "#resumo" : v === "backlog" ? "#backlog" : "";
       if ((location.hash || "") === want) return;
       history.replaceState(null, "", location.pathname + location.search + want);
     } catch (e) {}
@@ -1394,7 +1525,7 @@ window.__egAccent()})();</script>
 
   function refreshFilters() { renderStatusChips(); renderChips(); renderFilterBar(); renderGrid(); savePrefs(); }
   function renderFilterBar() {
-    var n = (statusFilter ? 1 : 0) + (platFilter ? 1 : 0);
+    var n = (statusFilter && view !== "backlog" ? 1 : 0) + (platFilter ? 1 : 0);
     var c = $("f-count"); c.textContent = String(n); c.hidden = n === 0;
     $("filter-btn").classList.toggle("on", n > 0);
     $("f-clear").hidden = n === 0;
@@ -1405,7 +1536,7 @@ window.__egAccent()})();</script>
       b.addEventListener("click", function () { clear(); refreshFilters(); });
       box.appendChild(b);
     }
-    if (statusFilter) tag(statusLabel(statusFilter), function () { statusFilter = ""; });
+    if (statusFilter && view !== "backlog") tag(statusLabel(statusFilter), function () { statusFilter = ""; });
     if (platFilter) tag(platFilter, function () { platFilter = ""; });
   }
   $("f-clear").addEventListener("click", function () { statusFilter = ""; platFilter = ""; refreshFilters(); });
@@ -1487,7 +1618,7 @@ window.__egAccent()})();</script>
     if (STATUSES.some(function (s) { return s.id === p.status; })) statusFilter = p.status;
     if (typeof p.plat === "string" && p.plat.length <= 60) platFilter = p.plat;
     if (Array.isArray(p.collapsed)) p.collapsed.forEach(function (y) { if (/^(\d{4}|x)$/.test(String(y))) collapsed[String(y)] = true; });
-    var v = viewFromHash() || (p.view === "year" ? "year" : "lib");
+    var v = viewFromHash() || (p.view === "year" || p.view === "backlog" ? p.view : "lib");
     if (v !== view) setView(v, true);
     syncThemeBtn();
   }
