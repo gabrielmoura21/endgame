@@ -775,9 +775,9 @@ window.__egAccent()})();</script>
     sgFetch("/search/autocomplete/" + encodeURIComponent(term)).then(function (data) {
       if (my !== sgSeq) return;
       sgShowList(data.slice(0, 6), data.length ? "" : "Nenhum jogo encontrado.");
-    }, function () {
+    }, function (e) {
       if (my !== sgSeq) return;
-      sgShowList([], "Busca indisponível agora. Digite o nome e escolha a capa manualmente.");
+      sgShowList([], "Busca indisponível agora (" + ((e && e.message) || "erro") + "). Digite o nome e escolha a capa manualmente.");
     });
   }
   $("title").addEventListener("input", function () {
