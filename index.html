@@ -177,8 +177,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tab { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 10px 0; min-height: 44px; color: var(--muted); font-weight: 600; font-size: 0.92rem; }
 .tab:hover { color: var(--fg); }
 .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
-.tb-status { padding-bottom: 0; }
-.tb-status + .toolbar { padding-top: 10px; }
 .tag-st { position: absolute; left: 8px; top: 8px; padding: 1px 7px; border-radius: 6px; background: rgba(10, 12, 16, 0.82); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .tag-st.platinado { color: #b9e6ff; }
 .tag-st.dropado { color: #ff9e94; }
@@ -187,7 +185,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .field textarea { width: 100%; min-width: 0; min-height: 84px; padding: 10px 12px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
 .hint { align-self: flex-end; color: var(--muted); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
 .btn.small { min-height: 34px; padding: 0 14px; font-size: 0.8rem; }
-.foot-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .io-status { flex-basis: 100%; min-height: 1.2em; font-size: 0.8rem; color: var(--muted); }
 .io-status.error { color: var(--danger); }
 
@@ -669,6 +666,10 @@ window.__egAccent()})();</script>
 </div>
 
 <script>
+/* ENDGAME — mapa do código (cada seção abaixo tem um título "// ----------"):
+   helpers · capa (redimensionar) · formulário · busca SteamGridDB · lista · desempenho (cache de capas e cards)
+   · abas e resumo do ano · exportar/importar · detalhe · menu · armazenamento (IndexedDB / Artifact)
+   · utilitários de canvas · salvar foto · compartilhar · buscar capas · apagar tudo · cabeçalho · preferências */
 (function () {
   var SUGGESTIONS = ["Elden Ring","The Legend of Zelda: Breath of the Wild","The Legend of Zelda: Tears of the Kingdom","The Witcher 3: Wild Hunt","Red Dead Redemption 2","God of War","God of War Ragnarök","The Last of Us Part I","The Last of Us Part II","Hollow Knight","Celeste","Hades","Stardew Valley","Cyberpunk 2077","Baldur's Gate 3","Dark Souls","Dark Souls III","Sekiro: Shadows Die Twice","Bloodborne","Hogwarts Legacy","Horizon Zero Dawn","Horizon Forbidden West","Marvel's Spider-Man","Marvel's Spider-Man 2","Ghost of Tsushima","Resident Evil 4","Resident Evil 2","Resident Evil Village","Persona 5 Royal","Final Fantasy VII Remake","Final Fantasy X","Super Mario Odyssey","Super Mario Bros. Wonder","Metroid Dread","Hollow Knight: Silksong","Disco Elysium","Undertale","Portal 2","Half-Life 2","Half-Life: Alyx","Mass Effect Legendary Edition","Grand Theft Auto V","Grand Theft Auto: San Andreas","Fallout 4","Fallout: New Vegas","The Elder Scrolls V: Skyrim","DOOM Eternal","DOOM (2016)","Control","Alan Wake 2","Death Stranding","Metal Gear Solid V: The Phantom Pain","Uncharted 4: A Thief's End","Assassin's Creed Odyssey","Assassin's Creed Valhalla","Assassin's Creed II","Batman: Arkham City","Sea of Thieves","Cuphead","Ori and the Will of the Wisps","Little Nightmares II","Inside","Limbo","It Takes Two","A Plague Tale: Requiem","Star Wars Jedi: Survivor","Pokémon Legends: Arceus","Kirby and the Forgotten Land","Xenoblade Chronicles 3","Fire Emblem: Three Houses","Animal Crossing: New Horizons","Forza Horizon 5","F1 24","EA Sports FC 25","Clair Obscur: Expedition 33"];
   var PLATFORMS = ["PC","PlayStation 5","PlayStation 4","PlayStation 3","PlayStation 2","Xbox Series X|S","Xbox One","Xbox 360","Nintendo Switch","Wii U","Nintendo 3DS","Steam Deck","Celular","Retrô / Emulador","Outra"];
@@ -703,6 +704,7 @@ window.__egAccent()})();</script>
 
   // ---------- helpers ----------
   function fmtRating(n) { return Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  function fmtLong(iso) { return new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }); }
   function fmtDate(iso) {
     var d = new Date(iso + "T12:00:00");
     if (isNaN(d)) return iso;
@@ -1008,24 +1010,31 @@ window.__egAccent()})();</script>
   }
   // ---------- desempenho: capas em cache, cards reaproveitados e miniaturas ----------
   var coverCache = {}, cardCache = {}, moreObs = null, tq = [], tBusy = false, bkt = { v: 0, t: -1e9 };
-  function coverSig(g) { return g.cover ? g.cover.length + ":" + g.cover.slice(-24) : ""; }
+  function coverSig(g) { return g.cover ? (g.cover.indexOf("blob:") === 0 ? g.cover : g.cover.length + ":" + g.cover.slice(-24)) : ""; }
   function coverEntry(g) {
     var sig = coverSig(g), e = coverCache[g.id];
     if (!e || e.sig !== sig) { if (e) dropCover(e); e = coverCache[g.id] = { sig: sig, orig: null, thumbs: {}, pend: {} }; }
     return e;
   }
   function dropCover(e) {
-    if (e.orig && e.orig.indexOf("blob:") === 0) { try { URL.revokeObjectURL(e.orig); } catch (x) {} }
+    if (e.own && e.orig) { try { URL.revokeObjectURL(e.orig); } catch (x) {} }
     for (var k in e.thumbs) { try { URL.revokeObjectURL(e.thumbs[k]); } catch (x) {} }
   }
-  function blobUrlFromData(uri) {
+  function dataToBlob(uri) {
     try {
       var i = uri.indexOf(","), meta = uri.slice(5, i), bin = atob(uri.slice(i + 1)), n = bin.length, u = new Uint8Array(n);
       for (var k = 0; k < n; k++) u[k] = bin.charCodeAt(k);
-      return URL.createObjectURL(new Blob([u], { type: meta.split(";")[0] || "image/jpeg" }));
-    } catch (x) { return uri; }
+      return new Blob([u], { type: meta.split(";")[0] || "image/jpeg" });
+    } catch (x) { return null; }
   }
-  function origUrl(g) { var e = coverEntry(g); return e.orig || (e.orig = blobUrlFromData(g.cover)); }
+  function origUrl(g) {
+    var e = coverEntry(g);
+    if (!e.orig) {
+      if (g.cover.indexOf("blob:") === 0) e.orig = g.cover;      // já é um arquivo guardado: usa direto
+      else { var bl = dataToBlob(g.cover); e.orig = bl ? URL.createObjectURL(bl) : g.cover; e.own = !!bl; }
+    }
+    return e.orig;
+  }
   // largura (em pixels reais) que uma capa da grade precisa; abaixo de 400 usamos uma miniatura
   function bucketNow() {
     var t = performance.now();
@@ -1477,7 +1486,7 @@ window.__egAccent()})();</script>
     if (g.cover) bg.style.backgroundImage = 'url("' + g.cover + '")'; else bg.style.background = phBg(g.title);
     var st = $("d-status"); st.textContent = statusLabel(g.status); st.className = "d-tag " + g.status;
     $("d-title").textContent = g.title;
-    var when = g.date ? " · " + (DONE_VERB[g.status] || "") + new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+    var when = g.date ? " · " + (DONE_VERB[g.status] || "") + fmtLong(g.date) : "";
     $("d-meta").textContent = g.platform + when;
     var sc = $("d-score"); sc.textContent = ""; sc.hidden = g.rating === null;
     sc.className = "d-score" + (g.rating !== null ? " " + scoreClass(g.rating) : "");
@@ -1526,7 +1535,7 @@ window.__egAccent()})();</script>
       rating: st === "backlog" ? null : Math.min(10, Math.max(0, Number(d.rating) || 0)),
       review: String(d.review || "").slice(0, 280),
       createdAt: Number(d.createdAt) || 0, example: d.example === true,
-      cover: typeof d.cover === "string" && d.cover.indexOf("data:image/") === 0 && d.cover.length <= 300000 ? d.cover : ""
+      cover: typeof d.cover === "string" && (d.cover.indexOf("blob:") === 0 || (d.cover.indexOf("data:image/") === 0 && d.cover.length <= 300000)) ? d.cover : ""
     };
   }
   function useLocal() {
@@ -1540,17 +1549,43 @@ window.__egAccent()})();</script>
       return new Promise(function (res, rej) {
         if (!window.indexedDB) { rej(new Error("sem idb")); return; }
         var r;
-        try { r = indexedDB.open("endgame", 1); } catch (e) { rej(e); return; }
-        r.onupgradeneeded = function () { r.result.createObjectStore("games", { keyPath: "id" }); };
+        try { r = indexedDB.open("endgame", 2); } catch (e) { rej(e); return; }
+        r.onupgradeneeded = function (ev) {
+          var db = r.result, t = r.transaction;
+          if (!db.objectStoreNames.contains("games")) db.createObjectStore("games", { keyPath: "id" });
+          var cs = db.objectStoreNames.contains("covers") ? t.objectStore("covers") : db.createObjectStore("covers");
+          var ms = db.objectStoreNames.contains("meta") ? t.objectStore("meta") : db.createObjectStore("meta");
+          if (ev.oldVersion === 1) {   // versão anterior guardava a capa dentro do jogo: separa em arquivo
+            ms.put(true, "legacyDone");
+            var cur = t.objectStore("games").openCursor();
+            cur.onsuccess = function () {
+              var c = cur.result; if (!c) return;
+              var v = c.value;
+              if (typeof v.cover === "string" && v.cover) { var bl = dataToBlob(v.cover); if (bl) cs.put(bl, v.id); }
+              if ("cover" in v) { delete v.cover; c.update(v); }
+              c.continue();
+            };
+          }
+        };
         r.onsuccess = function () { res(r.result); };
-        r.onerror = r.onblocked = function () { rej(r.error || new Error("idb")); };
+        r.onblocked = function () { $("storage-note").textContent = "Feche as outras abas do ENDGAME para atualizar o armazenamento."; };
+        r.onerror = function () { rej(r.error || new Error("idb")); };
       });
     }
-    function tx(mode, fn) {
+    function loadAll() {
       return new Promise(function (res, rej) {
-        var t = IDB.transaction("games", mode), st = t.objectStore("games"), out;
-        out = fn(st);
-        t.oncomplete = function () { res(out && out.result !== undefined ? out.result : undefined); };
+        var t = IDB.transaction(["games", "covers", "meta"], "readonly"), blobs = {};
+        var gq = t.objectStore("games").getAll(), mq = t.objectStore("meta").get("legacyDone"), cur = t.objectStore("covers").openCursor();
+        cur.onsuccess = function () { var c = cur.result; if (c) { blobs[c.key] = c.value; c.continue(); } };
+        t.oncomplete = function () { res({ games: gq.result, blobs: blobs, done: mq.result === true }); };
+        t.onerror = t.onabort = function () { rej(t.error || new Error("tx")); };
+      });
+    }
+    function writeTx(fn) {
+      return new Promise(function (res, rej) {
+        var t = IDB.transaction(["games", "covers", "meta"], "readwrite");
+        fn(t.objectStore("games"), t.objectStore("covers"), t.objectStore("meta"));
+        t.oncomplete = function () { res(); };
         t.onerror = t.onabort = function () { rej(t.error || new Error("tx")); };
       });
     }
@@ -1558,45 +1593,72 @@ window.__egAccent()})();</script>
       try { localStorage.setItem(LS_KEY, JSON.stringify(list)); return Promise.resolve(); }
       catch (e) { return Promise.reject({ code: "storage_full" }); }
     }
-    function fail(e) { var err = { code: "storage_full" }; ioStatus(errMsg(err), true); return Promise.reject(err); }
-    function install(list) {
-      games = list.map(function (d) { return normalize(d.id, d); });
+    function fail() { var err = { code: "storage_full" }; ioStatus(errMsg(err), true); return Promise.reject(err); }
+    function bare(g) { var d = {}; for (var k in g) if (k !== "cover") d[k] = g[k]; return d; }
+    function putGame(id, item) {
+      var i = games.findIndex(function (g) { return g.id === id; });
+      if (i >= 0) games[i] = item; else games.push(item);
+      renderAll();
+    }
+    function install(list, blobs) {
+      games = list.map(function (d) {
+        if (blobs && blobs[d.id] instanceof Blob) d.cover = URL.createObjectURL(blobs[d.id]);
+        return normalize(d.id, d);
+      });
       backend = {
         save: function (id, data) {
-          var item = normalize(id, data);
-          var p = IDB ? tx("readwrite", function (st) { st.put(item); }) :
-            lsPersist(games.filter(function (g) { return g.id !== id; }).concat([item]));
-          return p.then(function () {
-            var i = games.findIndex(function (g) { return g.id === id; });
-            if (i >= 0) games[i] = item; else games.push(item);
-            renderAll();
-          }, fail);
+          var item = normalize(id, data), c = item.cover;
+          if (!IDB) return lsPersist(games.filter(function (g) { return g.id !== id; }).concat([item])).then(function () { putGame(id, item); }, fail);
+          var cur = games.filter(function (g) { return g.id === id; })[0], blobP;
+          if (!c) blobP = Promise.resolve(null);                                   // sem capa
+          else if (c.indexOf("data:") === 0) blobP = Promise.resolve(dataToBlob(c)); // capa nova
+          else if (cur && cur.cover === c) blobP = Promise.resolve(undefined);       // capa não mudou
+          else blobP = fetch(c).then(function (r) { return r.blob(); });             // capa de um jogo apagado (desfazer)
+          return blobP.then(function (bl) {
+            return writeTx(function (gs, cs) {
+              gs.put(bare(item));
+              if (bl === null) cs.delete(id); else if (bl) cs.put(bl, id);
+            }).then(function () {
+              if (bl === null) item.cover = ""; else if (bl) item.cover = URL.createObjectURL(bl);
+              putGame(id, item);
+            });
+          }).then(null, fail);
         },
         remove: function (id) {
-          var p = IDB ? tx("readwrite", function (st) { st.delete(id); }) :
-            lsPersist(games.filter(function (g) { return g.id !== id; }));
+          var p = IDB ? writeTx(function (gs, cs) { gs.delete(id); cs.delete(id); }) : lsPersist(games.filter(function (g) { return g.id !== id; }));
           return p.then(function () { games = games.filter(function (g) { return g.id !== id; }); renderAll(); }, fail);
         }
       };
+      $("storage-note").textContent = "";
       ready = true; renderAll();
     }
     openIdb().then(function (db) {
       IDB = db;
-      return tx("readonly", function (st) { return st.getAll(); });
-    }).then(function (stored) {
-      var legacy = legacyRead();
-      if (stored.length || !legacy.length) { install(stored); return; }
-      // migração única: copia a lista antiga (localStorage) e só apaga a antiga depois de conferir
+      return loadAll();
+    }).then(function (all) {
+      // a lista antiga (localStorage) só é considerada uma vez; depois disso o IndexedDB manda
+      // (assim, apagar tudo nunca "ressuscita" dados antigos)
+      var legacy = all.done ? [] : legacyRead();
+      if (all.done) { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
+      if (all.games.length || !legacy.length) {
+        if (all.done) { install(all.games, all.blobs); return; }
+        return writeTx(function (gs, cs, ms) { ms.put(true, "legacyDone"); }).then(function () { install(all.games, all.blobs); });
+      }
+      // migração única: copia a lista antiga e só apaga a antiga depois de conferir
       var clean = legacy.filter(function (d) { return d && d.id; }).map(function (d) { return normalize(d.id, d); });
-      return tx("readwrite", function (st) { clean.forEach(function (g) { st.put(g); }); }).then(function () {
-        return tx("readonly", function (st) { return st.count(); });
-      }).then(function (n) {
-        if (n === clean.length) { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
-        install(clean);
+      return writeTx(function (gs, cs, ms) {
+        ms.put(true, "legacyDone");
+        clean.forEach(function (g) {
+          gs.put(bare(g));
+          if (g.cover) { var bl = dataToBlob(g.cover); if (bl) cs.put(bl, g.id); }
+        });
+      }).then(loadAll).then(function (again) {
+        if (again.games.length === clean.length) { try { localStorage.removeItem(LS_KEY); } catch (e) {} }
+        install(again.games, again.blobs);
       });
     }).catch(function () {
       IDB = null;
-      install(legacyRead());
+      install(legacyRead(), null);
     });
   }
   function useDb(db) {
@@ -1618,7 +1680,27 @@ window.__egAccent()})();</script>
       renderAll();
     });
   }
+  // ---------- utilitários de canvas (usados por "salvar foto" e "compartilhar") ----------
+  function loadImg(src) { return new Promise(function (res) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = function () { res(null); }; i.src = src; }); }
+  function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+  function wrapText(c, text, maxW, maxLines) {
+    var words = String(text).split(/\s+/), lines = [], cur = "";
+    for (var i = 0; i < words.length; i++) {
+      var t = cur ? cur + " " + words[i] : words[i];
+      if (c.measureText(t).width <= maxW || !cur) cur = t; else { lines.push(cur); cur = words[i]; }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      var last = lines[maxLines - 1];
+      while (last.length > 1 && c.measureText(last + "…").width > maxW) last = last.slice(0, -1);
+      lines[maxLines - 1] = last.replace(/[\s.,;:!?-]+$/, "") + "…";
+    }
+    return lines;
+  }
+
   // ---------- salvar foto: jogos do ano e estatísticas do ano ----------
+  (function () {
   function photoYear() {
     var ys = {}; games.forEach(function (g) { if (g.date) ys[g.date.slice(0, 4)] = true; });
     var years = Object.keys(ys).sort().reverse();
@@ -1805,29 +1887,15 @@ window.__egAccent()})();</script>
   $("photo-games").addEventListener("click", savePhotoGames);
   $("photo-stats").addEventListener("click", savePhotoStats);
 
+  })();
+
   // ---------- compartilhar: imagem do jogo + texto ----------
+  (function () {
   var SHARE_VERB = { zerado: "terminei", platinado: "platinei", dropado: "dropei" };
   function shareText(g) {
-    var d = g.date ? new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+    var d = g.date ? fmtLong(g.date) : "";
     if (g.status === "backlog") return g.title + " está no meu backlog.";
     return "Eu " + (SHARE_VERB[g.status] || "terminei") + " " + g.title + (g.rating !== null ? " e dei nota " + fmtRating(g.rating) : "") + (d ? " no dia " + d : "") + "!";
-  }
-  function loadImg(src) { return new Promise(function (res) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = function () { res(null); }; i.src = src; }); }
-  function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
-  function wrapText(c, text, maxW, maxLines) {
-    var words = String(text).split(/\s+/), lines = [], cur = "";
-    for (var i = 0; i < words.length; i++) {
-      var t = cur ? cur + " " + words[i] : words[i];
-      if (c.measureText(t).width <= maxW || !cur) cur = t; else { lines.push(cur); cur = words[i]; }
-    }
-    if (cur) lines.push(cur);
-    if (lines.length > maxLines) {
-      lines = lines.slice(0, maxLines);
-      var last = lines[maxLines - 1];
-      while (last.length > 1 && c.measureText(last + "…").width > maxW) last = last.slice(0, -1);
-      lines[maxLines - 1] = last.replace(/[\s.,;:!?-]+$/, "") + "…";
-    }
-    return lines;
   }
   function buildShareImage(g) {
     var W = 1080, H = 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
@@ -1878,7 +1946,7 @@ window.__egAccent()})();</script>
       y += 76; c.fillStyle = "#ffffff"; c.font = "700 58px Sora, sans-serif";
       wrapText(c, g.title, 880, 2).forEach(function (ln) { c.fillText(ln, W / 2, y); y += 68; });
       // plataforma · data
-      var when = g.date ? " · " + new Date(g.date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : "";
+      var when = g.date ? " · " + fmtLong(g.date) : "";
       y += -6; c.fillStyle = "rgba(255,255,255,0.72)"; c.font = "500 30px Manrope, sans-serif";
       c.fillText(wrapText(c, g.platform + when, 900, 1)[0], W / 2, y);
       // nota
@@ -1922,6 +1990,8 @@ window.__egAccent()})();</script>
       done(false);
     }).catch(function () { ioStatus("Não foi possível gerar a imagem agora.", true); }).then(function () { btn.disabled = false; });
   });
+
+  })();
 
   // ---------- buscar de novo as capas que faltam (útil depois de importar, pois o JSON vai sem capas) ----------
   function sgFirstCover(title) {
