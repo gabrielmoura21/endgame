@@ -438,6 +438,7 @@ body { background-color: var(--bg); background-image: radial-gradient(900px 520p
 #d-share { display: inline-flex; align-items: center; gap: 8px; }
 #d-share svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .summary.only-backlog > span:not(:last-child) { display: none; }
+.menu .menu-danger { color: var(--danger); }
 .menu-sub { display: flex; flex-direction: column; margin: 2px 0 4px 12px; padding-left: 8px; border-left: 1px solid var(--glass-line); }
 .menu-sub button { min-height: 36px; font-size: 0.85rem; color: var(--muted); }
 .menu-sub button:hover, .menu-sub button:focus-visible { color: var(--fg); }
@@ -488,6 +489,7 @@ window.__egAccent()})();</script>
           <button type="button" role="menuitem" id="photo-games">Jogos do ano</button>
           <button type="button" role="menuitem" id="photo-stats">Estatísticas do ano</button>
         </div>
+        <button type="button" role="menuitem" id="wipe-btn" class="menu-danger">Apagar todos os dados</button>
         <button type="button" role="menuitem" id="clear-examples" hidden>Remover jogos de exemplo</button>
         <hr>
         <div class="swatches" id="swatches" role="group" aria-label="Cor de destaque"><span class="sw-label">Cor de destaque</span>
@@ -626,6 +628,16 @@ window.__egAccent()})();</script>
         <button type="submit" class="btn primary" id="save-btn">Salvar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="overlay" id="wipe-overlay" hidden>
+  <div class="modal cov-modal" role="alertdialog" aria-modal="true" aria-labelledby="wipe-title" aria-describedby="wipe-desc">
+    <h2 id="wipe-title">Apagar todos os dados?</h2>
+    <p id="wipe-desc" class="cov-sub">Isso apaga todos os jogos, notas, resenhas e capas desta lista. Não dá para desfazer. Exporte o JSON antes se quiser guardar um backup.</p>
+    <div class="field"><label for="wipe-input">Digite APAGAR para confirmar</label><input type="text" id="wipe-input" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+    <p class="cov-sub" id="wipe-err" role="status"></p>
+    <div class="m-foot"><span class="spacer"></span><button type="button" class="btn" id="wipe-cancel">Cancelar</button><button type="button" class="btn danger" id="wipe-ok" disabled>Apagar tudo</button></div>
   </div>
 </div>
 
@@ -1227,6 +1239,7 @@ window.__egAccent()})();</script>
     renderStats(); renderStatusChips(); renderChips(); renderFilterBar(); renderGrid(); if (view === "year") renderYear();
     $("clear-examples").hidden = !(canWrite && games.some(function (g) { return g.example; }));
     $("add-btn").hidden = !canWrite;
+    $("wipe-btn").hidden = !canWrite || !games.length;
     $("import-btn").hidden = !canWrite;
     $("edit-toggle").hidden = !canWrite;
     $("menu-hr").hidden = !canWrite;
@@ -1950,6 +1963,31 @@ window.__egAccent()})();</script>
     if (e.key !== "Escape" || $("cov-overlay").hidden) return;
     if (covBusy) { covCancel = true; var cb = $("cov-cancel"); cb.disabled = true; cb.textContent = "Cancelando…"; } else covClose();
   });
+  // ---------- apagar todos os dados (com confirmação) ----------
+  (function () {
+    var ov = $("wipe-overlay"), inp = $("wipe-input"), ok = $("wipe-ok"), err = $("wipe-err"), busy = false;
+    function close() { if (busy) return; ov.hidden = true; document.body.style.overflow = ""; }
+    function open() {
+      if (!backend || !games.length || covBusy) return;
+      inp.value = ""; ok.disabled = true; err.textContent = "";
+      setMenu(false); ov.hidden = false; document.body.style.overflow = "hidden"; inp.focus();
+    }
+    $("wipe-btn").addEventListener("click", open);
+    $("wipe-cancel").addEventListener("click", close);
+    ov.addEventListener("click", function (e) { if (e.target === ov) close(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !ov.hidden) close(); });
+    inp.addEventListener("input", function () { ok.disabled = inp.value.trim().toUpperCase() !== "APAGAR"; });
+    ok.addEventListener("click", function () {
+      if (ok.disabled || busy) return;
+      busy = true; ok.disabled = true; $("wipe-cancel").disabled = true; err.textContent = "Apagando…";
+      var ids = games.map(function (g) { return g.id; }), bad = 0;
+      Promise.all(ids.map(function (id) { return Promise.resolve(backend.remove(id)).then(null, function () { bad++; }); })).then(function () {
+        busy = false; $("wipe-cancel").disabled = false; close();
+        if (bad) ioStatus(bad + " jogo(s) não puderam ser apagados. Tente de novo.", true);
+        else ioStatus("Todos os dados foram apagados.");
+      });
+    });
+  })();
   function fetchMissingCovers(prefix, only, ui) {
     prefix = prefix ? prefix + " " : "";
     if (covBusy) return Promise.resolve();
