@@ -450,6 +450,8 @@ body { background-color: var(--bg); background-image: radial-gradient(900px 520p
   .filter-bar #group { flex: 1 1 calc(57% - 6px); }
   .filter-bar #sort { flex: 1 1 calc(40% - 6px); }
 }
+.grid > li:not(.grp-year):not(.grp-month) { contain: layout style; }
+.grid-more { height: 1px; }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   li.rise { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -986,6 +988,100 @@ window.__egAccent()})();</script>
     chip("Todas as plataformas", "");
     PLATFORMS.concat(Object.keys(used).filter(function (p) { return PLATFORMS.indexOf(p) < 0; })).forEach(function (p) { if (used[p]) chip(p, p); });
   }
+  // ---------- desempenho: capas em cache, cards reaproveitados e miniaturas ----------
+  var coverCache = {}, cardCache = {}, moreObs = null, tq = [], tBusy = false, bkt = { v: 0, t: -1e9 };
+  function coverSig(g) { return g.cover ? g.cover.length + ":" + g.cover.slice(-24) : ""; }
+  function coverEntry(g) {
+    var sig = coverSig(g), e = coverCache[g.id];
+    if (!e || e.sig !== sig) { if (e) dropCover(e); e = coverCache[g.id] = { sig: sig, orig: null, thumbs: {}, pend: {} }; }
+    return e;
+  }
+  function dropCover(e) {
+    if (e.orig && e.orig.indexOf("blob:") === 0) { try { URL.revokeObjectURL(e.orig); } catch (x) {} }
+    for (var k in e.thumbs) { try { URL.revokeObjectURL(e.thumbs[k]); } catch (x) {} }
+  }
+  function blobUrlFromData(uri) {
+    try {
+      var i = uri.indexOf(","), meta = uri.slice(5, i), bin = atob(uri.slice(i + 1)), n = bin.length, u = new Uint8Array(n);
+      for (var k = 0; k < n; k++) u[k] = bin.charCodeAt(k);
+      return URL.createObjectURL(new Blob([u], { type: meta.split(";")[0] || "image/jpeg" }));
+    } catch (x) { return uri; }
+  }
+  function origUrl(g) { var e = coverEntry(g); return e.orig || (e.orig = blobUrlFromData(g.cover)); }
+  // largura (em pixels reais) que uma capa da grade precisa; abaixo de 400 usamos uma miniatura
+  function bucketNow() {
+    var t = performance.now();
+    if (t - bkt.t < 400) return bkt.v;
+    var c = document.querySelector("#grid .cover"); if (!c) return bkt.v;
+    var need = c.getBoundingClientRect().width * (window.devicePixelRatio || 1);
+    bkt = { v: need <= 200 ? 200 : need <= 280 ? 280 : need <= 360 ? 360 : 400, t: t };
+    return bkt.v;
+  }
+  function coverSrc(g) { var e = coverEntry(g), b = bucketNow(); return (b && e.thumbs[b]) || origUrl(g); }
+  function queueThumb(g) {
+    var b = bucketNow(); if (!b || b >= 400) return;
+    var e = coverEntry(g); if (e.thumbs[b] || e.pend[b]) return;
+    e.pend[b] = true; tq.push({ g: g, b: b, sig: e.sig }); pumpThumbs();
+  }
+  function pumpThumbs() {
+    if (tBusy || !tq.length) return;
+    tBusy = true;
+    var run = function () { makeThumb(tq.shift()).then(function () { tBusy = false; pumpThumbs(); }, function () { tBusy = false; pumpThumbs(); }); };
+    if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 800 }); else setTimeout(run, 60);
+  }
+  function makeThumb(it) {
+    return loadImg(origUrl(it.g)).then(function (im) {
+      if (!im) return;
+      var w = it.b, h = Math.round(w * 1.5), cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      var c = cv.getContext("2d"); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = "high"; c.drawImage(im, 0, 0, w, h);
+      return new Promise(function (res) {
+        cv.toBlob(function (bl) {
+          var e = coverCache[it.g.id];
+          if (bl && e && e.sig === it.sig) {
+            e.thumbs[it.b] = URL.createObjectURL(bl);
+            var id = (window.CSS && CSS.escape) ? CSS.escape(it.g.id) : String(it.g.id).replace(/["\\]/g, "\\$&");
+            var img = document.querySelector('#grid img[data-cid="' + id + '"]');
+            if (img && bucketNow() === it.b) img.src = e.thumbs[it.b];
+          }
+          res();
+        }, "image/jpeg", 0.9);
+      });
+    });
+  }
+  function cardSig(g) { return [g.title, g.platform, g.status, g.date, g.rating, g.review, g.createdAt, g.example ? 1 : 0, coverSig(g)].join("\u0001"); }
+  function cardFor(g, rise) {
+    var sig = cardSig(g), c = cardCache[g.id];
+    if (c && c.sig === sig) { c.li.classList.remove("rise"); return c.li; }
+    var li = buildCard(g, rise);
+    cardCache[g.id] = { sig: sig, li: li };
+    return li;
+  }
+  function buildCard(g, rise) {
+    var li = document.createElement("li");
+    if (rise >= 0) { li.className = "rise"; li.style.setProperty("--i", String(Math.min(rise, 14))); }
+    var b = document.createElement("button"); b.type = "button"; b.className = "game";
+    b.setAttribute("aria-label", g.title + ", " + statusLabel(g.status) + (g.rating !== null ? ", nota " + fmtRating(g.rating) : "") + ", " + g.platform);
+    var cv = document.createElement("div"); cv.className = "cover st-" + g.status + (g.rating !== null ? " sc " + scoreClass(g.rating) : "");
+    if (g.cover) { var im = document.createElement("img"); im.src = coverSrc(g); im.setAttribute("data-cid", g.id); im.alt = ""; im.loading = "lazy"; im.decoding = "async"; cv.appendChild(im); }
+    else { cv.style.background = phBg(g.title); cv.appendChild(phEl(g.title)); }
+    if (g.review) { var pk = el("div", "peek"); pk.setAttribute("aria-hidden", "true"); pk.appendChild(el("span", "", g.review)); cv.appendChild(pk); }
+    if (g.rating !== null) { var bd = document.createElement("span"); bd.className = "badge " + scoreClass(g.rating); bd.textContent = fmtRating(g.rating); cv.appendChild(bd); }
+    if (g.status === "platinado") cv.appendChild(trophyImg("trophy"));
+    else if (g.status !== "zerado") { var stg = document.createElement("span"); stg.className = "tag-st ico " + g.status; stg.innerHTML = STICO[g.status] || ""; stg.title = statusLabel(g.status); cv.appendChild(stg); }
+    if (g.example) { var ex = document.createElement("span"); ex.className = "tag-ex"; ex.textContent = "exemplo"; cv.appendChild(ex); }
+    var t = document.createElement("p"); t.className = "g-title"; t.textContent = g.title;
+    var m = document.createElement("p"); m.className = "g-meta"; m.textContent = g.date ? g.platform + " · " + fmtDay(g.date) : g.platform;
+    b.appendChild(cv); b.appendChild(t); b.appendChild(m);
+    b.addEventListener("click", function () { if (canWrite && editMode) openModal(g); else openDetail(g); });
+    li.appendChild(b);
+    return li;
+  }
+  function pruneCaches() {
+    var live = {}; games.forEach(function (g) { live[g.id] = true; });
+    for (var id in cardCache) if (!live[id]) delete cardCache[id];
+    for (var id2 in coverCache) if (!live[id2]) { dropCover(coverCache[id2]); delete coverCache[id2]; }
+  }
+
   function renderGrid() {
     var ul = $("grid"); ul.innerHTML = ""; ul.className = "grid"; ul.removeAttribute("aria-busy");
     var yn = $("year-nav"); yn.hidden = true; yn.innerHTML = "";
@@ -1065,26 +1161,29 @@ window.__egAccent()})();</script>
       }
       return cur;
     }
-    var intro = !introDone, introN = 0;
-    list.forEach(function (g) {
-      var li = document.createElement("li");
-      if (intro) { li.className = "rise"; li.style.setProperty("--i", String(Math.min(introN++, 14))); }
-      var b = document.createElement("button"); b.type = "button"; b.className = "game";
-      b.setAttribute("aria-label", g.title + ", " + statusLabel(g.status) + (g.rating !== null ? ", nota " + fmtRating(g.rating) : "") + ", " + g.platform);
-      var cv = document.createElement("div"); cv.className = "cover st-" + g.status + (g.rating !== null ? " sc " + scoreClass(g.rating) : "");
-      if (g.cover) { var im = document.createElement("img"); im.src = g.cover; im.alt = ""; im.loading = "lazy"; cv.appendChild(im); }
-      else { cv.style.background = phBg(g.title); cv.appendChild(phEl(g.title)); }
-      if (g.review) { var pk = el("div", "peek"); pk.setAttribute("aria-hidden", "true"); pk.appendChild(el("span", "", g.review)); cv.appendChild(pk); }
-      if (g.rating !== null) { var bd = document.createElement("span"); bd.className = "badge " + scoreClass(g.rating); bd.textContent = fmtRating(g.rating); cv.appendChild(bd); }
-      if (g.status === "platinado") cv.appendChild(trophyImg("trophy"));
-      else if (g.status !== "zerado") { var stg = document.createElement("span"); stg.className = "tag-st ico " + g.status; stg.innerHTML = STICO[g.status] || ""; stg.title = statusLabel(g.status); cv.appendChild(stg); }
-      if (g.example) { var ex = document.createElement("span"); ex.className = "tag-ex"; ex.textContent = "exemplo"; cv.appendChild(ex); }
-      var t = document.createElement("p"); t.className = "g-title"; t.textContent = g.title;
-      var m = document.createElement("p"); m.className = "g-meta"; m.textContent = g.date ? g.platform + " · " + fmtDay(g.date) : g.platform;
-      b.appendChild(cv); b.appendChild(t); b.appendChild(m);
-      b.addEventListener("click", function () { if (canWrite && editMode) openModal(g); else openDetail(g); });
-      li.appendChild(b); holder(g).appendChild(li);
-    });
+    // os cards são montados aos poucos: os primeiros agora e o resto conforme a rolagem chega perto
+    var pos = 0, introN = 0, CHUNK = 36, intro = !introDone, sent = null;
+    function stopMore() { if (moreObs) { moreObs.disconnect(); moreObs = null; } if (sent && sent.parentNode) sent.parentNode.removeChild(sent); sent = null; }
+    function renderMore(max) {
+      var end = Math.min(list.length, pos + max);
+      for (; pos < end; pos++) {
+        var g = list[pos];
+        holder(g).appendChild(cardFor(g, intro && introN < 15 ? introN++ : -1));
+        if (g.cover) queueThumb(g);
+      }
+      if (pos >= list.length) stopMore();
+    }
+    function fill() { while (sent && pos < list.length && sent.getBoundingClientRect().top < window.innerHeight + 1500) renderMore(CHUNK); }
+    stopMore();
+    renderMore(CHUNK);
+    if (pos < list.length) {
+      if (!("IntersectionObserver" in window)) renderMore(1e9);
+      else {
+        sent = el("div", "grid-more"); sent.setAttribute("aria-hidden", "true"); ul.parentNode.insertBefore(sent, ul.nextSibling);
+        moreObs = new IntersectionObserver(function (en) { if (en[0].isIntersecting) fill(); }, { rootMargin: "1500px 0px" });
+        moreObs.observe(sent); fill();
+      }
+    }
     if (list.length) introDone = true;
     // índice de anos para pular direto para uma prateleira
     if (grouped && order.length > 1) {
@@ -1092,6 +1191,7 @@ window.__egAccent()})();</script>
       order.forEach(function (y) {
         var yb = el("button", "chip", topLabel(y)); yb.type = "button";
         yb.addEventListener("click", function () {
+          renderMore(1e9);
           var h = ul.querySelector('.grp-year[data-y="' + String(y).replace(/["\\]/g, "\\$&") + '"]'); if (!h) return;
           var t = h.querySelector(".grp-toggle");
           if (t.getAttribute("aria-expanded") === "false") toggleYear(y, t);
@@ -1110,7 +1210,14 @@ window.__egAccent()})();</script>
     for (var i = 0; i < nodes.length; i++) nodes[i].hidden = closing;
     savePrefs();
   }
+  var renderQueued = false;
   function renderAll() {
+    if (renderQueued) return;
+    renderQueued = true;
+    (window.requestAnimationFrame || setTimeout)(function () { renderQueued = false; renderAllNow(); });
+  }
+  function renderAllNow() {
+    if (ready) pruneCaches();
     renderStats(); renderStatusChips(); renderChips(); renderFilterBar(); renderGrid(); if (view === "year") renderYear();
     $("clear-examples").hidden = !(canWrite && games.some(function (g) { return g.example; }));
     $("add-btn").hidden = !canWrite;
@@ -1118,7 +1225,8 @@ window.__egAccent()})();</script>
     $("edit-toggle").hidden = !canWrite;
     $("menu-hr").hidden = !canWrite;
   }
-  $("q").addEventListener("input", renderGrid);
+  var qTimer = null;
+  $("q").addEventListener("input", function () { clearTimeout(qTimer); qTimer = setTimeout(renderGrid, 140); });
   $("sort").addEventListener("change", function () { renderGrid(); savePrefs(); });
   $("group").addEventListener("change", function () { renderGrid(); savePrefs(); });
   $("clear-examples").addEventListener("click", function () {
